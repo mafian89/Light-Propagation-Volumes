@@ -25,10 +25,6 @@ CTextureViewer::~CTextureViewer()
 	glDeleteBuffers(1, &VBO);
 }
 
-std::string CTextureViewer::sayHello() {
-	return "Hello";
-}
-
 void CTextureViewer::draw() {
 	//Bind VAO
 	glBindVertexArray(VAO);
@@ -87,12 +83,14 @@ void CTextureViewer::setUpShaders() {
 		1.0, 0.0
 	};
 
-	glGenVertexArrays(1, &VAO);	//vygenerovani jmena VAO
-	glBindVertexArray(VAO);		//aktivovani VAO
+	//Generate VAO
+	glGenVertexArrays(1, &VAO);
+	//Bind VAO
+	glBindVertexArray(VAO);		
 
 	//Generate VBO
 	glGenBuffers(1, &VBO);
-	//Activate VBO
+	//Bind VBO
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//Alocate buffer
 	glBufferData(GL_ARRAY_BUFFER, sizeof(pos)+sizeof(uv), NULL, GL_STATIC_DRAW);

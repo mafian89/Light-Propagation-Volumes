@@ -24,7 +24,7 @@ void Initialize() {
 void Display() {
 
 	//glEnable(GL_CULL_FACE);
-	//glDisable(GL_DEPTH_TEST);
+	glDisable(GL_DEPTH_TEST);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -84,10 +84,6 @@ int main() {
 		std::cout << "GLEW Init: Success!" << std::endl;
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
-
-	
-	//cout << ctv->sayHello() << " " << ctv->getTexture() << endl;
-	
 	
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */

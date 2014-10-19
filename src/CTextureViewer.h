@@ -10,8 +10,9 @@ class CTextureViewer
 {
 private:
 	GLuint texture;
-	//VBO - don't need EBO, i'll use glDrawArray()
+	//VBO - don't need EBO, i'll use glDrawArrays()
 	GLuint VBO;
+	//VAO - needed for glDrawArrays()
 	GLuint VAO;
 	GLSLShader * s;
 	//Default shaders
@@ -21,7 +22,6 @@ private:
 public:
 	CTextureViewer();
 	CTextureViewer(GLuint tex, std::string vs, std::string fs);
-	std::string sayHello();
 	void draw();
 	//Setters
 	void setTexture(GLuint tex);
