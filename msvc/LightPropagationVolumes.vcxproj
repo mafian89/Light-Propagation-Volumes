@@ -20,6 +20,10 @@
     <ClInclude Include="..\src\CTextureViewer.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\textureViewer.fs" />
+    <None Include="..\shaders\textureViewer.vs" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9F1A7937-D3EA-481C-9A95-E009299D6D5B}</ProjectGuid>
     <RootNamespace>LightPropagationVolumes</RootNamespace>
