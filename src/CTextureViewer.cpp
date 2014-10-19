@@ -33,6 +33,19 @@ void CTextureViewer::draw() {
 	//Bind VBO
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
+	this->s->Use();
+
+	//Bind texture
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, this->texture);
+
+	//Draw
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 8 * sizeof(float));
+
+	//Unbind texture for sure
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	this->s->UnUse();
 	//Unbind VBO - just for sure
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -85,9 +98,6 @@ void CTextureViewer::setUpShaders() {
 	glEnableVertexAttribArray((*s)["vUV"]);
 	glVertexAttribPointer((*s)["vUV"], 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (GLvoid*)(sizeof(float)* 8));
 
-	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, this->texture);
 	glUniform1i((*s)("texture"), 0);
 
 	s->UnUse();
