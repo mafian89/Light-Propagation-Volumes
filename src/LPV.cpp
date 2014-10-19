@@ -15,15 +15,29 @@
 
 using namespace std;
 
+float aspect;
+CTextureViewer * ctv;
+
 void Initialize() {
+	ctv = new CTextureViewer((GLuint)0, "../shaders/textureViewer.vs", "../shaders/textureViewer.fs");
 }
 void Display() {
 
+	//glEnable(GL_CULL_FACE);
+	//glDisable(GL_DEPTH_TEST);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	
+	ctv->draw();
 }
 void Finalize(void) {
-
+	delete ctv;
 }
 void Reshape(int width, int height){
+	glViewport(0, 0, width, height);
+	aspect = float(height) / float(width);
 }
 
 
@@ -71,9 +85,9 @@ int main() {
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
 
-	CTextureViewer * ctv = new CTextureViewer();
-	cout << ctv->sayHello() << " " << ctv->getTexture() << endl;
-	delete ctv;
+	
+	//cout << ctv->sayHello() << " " << ctv->getTexture() << endl;
+	
 	
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */

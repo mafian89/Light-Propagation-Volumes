@@ -30,11 +30,13 @@ std::string CTextureViewer::sayHello() {
 }
 
 void CTextureViewer::draw() {
+	//Bind VAO
+	glBindVertexArray(VAO);
 	//Bind VBO
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 	this->s->Use();
-
+	
 	//Bind texture
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, this->texture);
@@ -46,8 +48,12 @@ void CTextureViewer::draw() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	this->s->UnUse();
+
 	//Unbind VBO - just for sure
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//Unbind VAO
+	glBindVertexArray(0);
+	
 }
 
 //Called only once in constructor
@@ -81,6 +87,9 @@ void CTextureViewer::setUpShaders() {
 		1.0, 0.0
 	};
 
+	glGenVertexArrays(1, &VAO);	//vygenerovani jmena VAO
+	glBindVertexArray(VAO);		//aktivovani VAO
+
 	//Generate VBO
 	glGenBuffers(1, &VBO);
 	//Activate VBO
@@ -103,6 +112,8 @@ void CTextureViewer::setUpShaders() {
 	s->UnUse();
 	//unbind buffer
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
 }
 
 //Setters

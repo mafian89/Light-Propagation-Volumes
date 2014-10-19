@@ -12,6 +12,7 @@ private:
 	GLuint texture;
 	//VBO - don't need EBO, i'll use glDrawArray()
 	GLuint VBO;
+	GLuint VAO;
 	GLSLShader * s;
 	//Default shaders
 	std::string vs;
