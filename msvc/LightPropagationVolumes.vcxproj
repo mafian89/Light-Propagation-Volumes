@@ -11,7 +11,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\common.h" />
+    <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9F1A7937-D3EA-481C-9A95-E009299D6D5B}</ProjectGuid>

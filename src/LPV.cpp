@@ -1,12 +1,5 @@
-#include <stdio.h>
-#include <iostream>
-#include <stdlib.h>
-
-//#define GLEW_STATIC
-#include <SDL2/SDL.h>
-#include <GL/glew.h>
-
-#include "GLSLShader/GLSLShader.h"
+#include "common.h"
+#include "CTextureViewer.h"
 
 
 #ifdef _MSC_VER
@@ -77,6 +70,11 @@ int main() {
 		std::cout << "GLEW Init: Success!" << std::endl;
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
+
+	CTextureViewer * ctv = new CTextureViewer();
+	cout << ctv->sayHello() << " " << ctv->getTexture() << endl;
+	delete ctv;
+	
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
 
