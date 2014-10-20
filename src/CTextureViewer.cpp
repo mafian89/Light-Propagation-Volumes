@@ -4,7 +4,7 @@
 CTextureViewer::CTextureViewer()
 {
 	this->s = new GLSLShader();
-	this->fs = "default.fs";
+	this->fs = "default.frag";
 	this->vs = "default.vs";
 	setUpShaders();
 }
@@ -23,6 +23,7 @@ CTextureViewer::~CTextureViewer()
 {
 	delete s;
 	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &VAO);
 }
 
 void CTextureViewer::draw() {
@@ -38,7 +39,7 @@ void CTextureViewer::draw() {
 	glBindTexture(GL_TEXTURE_2D, this->texture);
 
 	//Draw
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 8 * sizeof(float));
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	//Unbind texture for sure
 	glBindTexture(GL_TEXTURE_2D, 0);

@@ -37,10 +37,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\shaders\textureViewer.fs">
+    <None Include="..\shaders\textureViewer.vs">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="..\shaders\textureViewer.vs">
+    <None Include="..\shaders\textureViewer.frag">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

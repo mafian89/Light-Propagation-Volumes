@@ -21,7 +21,7 @@
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\shaders\textureViewer.fs" />
+    <None Include="..\shaders\textureViewer.frag" />
     <None Include="..\shaders\textureViewer.vs" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
