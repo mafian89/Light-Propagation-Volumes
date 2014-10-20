@@ -20,7 +20,7 @@ using namespace std;
 
 float aspect;
 CTextureViewer * ctv;
-
+CTextureViewer * ctv2;
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
 // taken from: http://r3dux.org/tag/ilutglloadimage/
@@ -106,8 +106,21 @@ GLuint loadImage(const char* theFileName)
 
 void Initialize() {
 	ctv = new CTextureViewer(loadImage("../textures/texture.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+	ctv2 = new CTextureViewer(loadImage("../textures/floor.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 }
 void Display() {
+
+	//glEnable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//ctv->draw();
+}
+
+void DisplayTexture(CTextureViewer * ctv) {
 
 	//glEnable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
@@ -120,6 +133,7 @@ void Display() {
 }
 void Finalize(void) {
 	delete ctv;
+	delete ctv2;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -137,6 +151,8 @@ int main() {
 
 	SDL_Window *mainwindow; /* Our window handle */
 	SDL_GLContext maincontext; /* Our opengl context handle */
+	SDL_Window *w2;
+	SDL_GLContext c2;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) { /* Initialize SDL's Video subsystem */
 		std::cout << "Unable to initialize SDL";
@@ -152,6 +168,7 @@ int main() {
 	* You may need to change this to 16 or 32 for your system */
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+	//SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
 	/* Create our window centered at 512x512 resolution */
 	mainwindow = SDL_CreateWindow("Window title goes here", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -164,6 +181,15 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
+
+	w2 = SDL_CreateWindow("Window title goes here #2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		512, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w2){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+	//c2 = SDL_GL_CreateContext(w2);
 
 	GLenum rev;
 	glewExperimental = GL_TRUE;
@@ -191,15 +217,29 @@ int main() {
 	SDL_Event event;
 
 	while (!quit){
-
-		Display();
-		SDL_GL_SwapWindow(mainwindow);
-
 		while (SDL_PollEvent(&event)){
 			if (event.type == SDL_QUIT){
+				//std::cout << "yes" << std::endl;
 				quit = true;
 			}
+			if (event.type == SDL_WINDOWEVENT) {
+				switch (event.window.event) {
+				case SDL_WINDOWEVENT_CLOSE:
+					//SDL_Log("Window %d closed", event.window.windowID);
+					SDL_DestroyWindow((event.window.windowID > 1) ? w2 : mainwindow);
+					break;
+				}
+
+			}
 		}
+
+		SDL_GL_MakeCurrent(w2, maincontext);
+		DisplayTexture(ctv2);
+		SDL_GL_SwapWindow(w2);
+
+		SDL_GL_MakeCurrent(mainwindow, maincontext);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(mainwindow);
 	}
 
 	Finalize();
@@ -207,6 +247,7 @@ int main() {
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
+	SDL_DestroyWindow(w2);
 	SDL_Quit();
 
 	return 0;
