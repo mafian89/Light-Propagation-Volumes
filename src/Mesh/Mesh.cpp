@@ -14,7 +14,11 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 
 	elementCount = mesh->mNumFaces * 3;
 
+	//std::cout << "Faces num: " << mesh->mNumFaces << std::endl;
+	//std::cout << "Elem count num: " << mesh->mNumFaces * 3<< std::endl;
+
 	if(mesh->HasPositions()) {
+		//std::cout << "Vertices num: " << mesh->mNumVertices << std::endl;
 		float *vertices = new float[mesh->mNumVertices * 3];
 		for(int i = 0; i < mesh->mNumVertices; ++i) {
 			vertices[i * 3] = mesh->mVertices[i].x;
@@ -38,13 +42,14 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 		for(int i = 0; i < mesh->mNumVertices; ++i) {
 			texCoords[i * 2] = mesh->mTextureCoords[0][i].x;
 			texCoords[i * 2 + 1] = mesh->mTextureCoords[0][i].y;
+			//std::cout << mesh->mTextureCoords[0][i].x << "," << mesh->mTextureCoords[0][i].y<<std::endl;
 		}
 
 		glGenBuffers(1, &vbo[TEXCOORD_BUFFER]);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[TEXCOORD_BUFFER]);
 		glBufferData(GL_ARRAY_BUFFER, 2 * mesh->mNumVertices * sizeof(GLfloat), texCoords, GL_STATIC_DRAW);
 
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 		glEnableVertexAttribArray (1);
 
 		delete texCoords;
@@ -131,11 +136,13 @@ void Mesh::MeshEntry::render() {
 Mesh::Mesh(const char *filename)
 {
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(filename, NULL);
+	const aiScene *scene = importer.ReadFile(filename, aiProcess_Triangulate); //aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
 	if(!scene) {
-		printf("Unable to laod mesh: %s\n", importer.GetErrorString());
+		printf("Unable to load mesh: %s\n", importer.GetErrorString());
+		return;
 	}
 
+	//std::cout << "Num meshes: " << scene->mNumMeshes << std::endl;
 	for(int i = 0; i < scene->mNumMeshes; ++i) {
 		meshEntries.push_back(new Mesh::MeshEntry(scene->mMeshes[i]));
 	}

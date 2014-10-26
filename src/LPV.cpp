@@ -28,7 +28,11 @@ CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader;
 Mesh * mesh;
-float movementSpeed = 0.01f;
+float movementSpeed = 4.0f;
+float ftime;
+GLuint tex;
+
+#define CTV
 
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
@@ -114,8 +118,11 @@ GLuint loadImage(const char* theFileName)
 
 
 void Initialize(SDL_Window * w) {
-	ctv = new CTextureViewer(loadImage("../textures/texture.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+	tex = loadImage("../textures/texture.png");
+#ifdef CTV
+	ctv = new CTextureViewer(tex, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(loadImage("../textures/floor.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+#endif
 	////////////////////////////////////////////////////
 	// SHADERS INIT
 	////////////////////////////////////////////////////
@@ -137,10 +144,13 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/mix.obj");
+	mesh = new Mesh("../models/cube.obj");
 }
+float rot = 0.0;
+float elevation = 0.0;
+float rotSpeed = 30.0f;
+float elevationSpeed = 1.0f;
 void Display() {
-
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	//Clear color
@@ -156,9 +166,24 @@ void Display() {
 	controlCamera->computeMatricesFromInputs();
 
 	basicShader.Use();
-	glm::mat4 mvp = controlCamera->getProjectionMatrix() * controlCamera->getViewMatrix() * glm::mat4(1.0f);
+	rot = rot + rotSpeed * ftime;
+	if (rot > 360.0)
+		rot = 0.0;
+	//elevation = elevation + elevationSpeed * ftime;
+	if (elevation <= 1.0 && elevation > 0.0) {
+		elevation = elevation + elevationSpeed * ftime;
+	}
+	else {
+		elevation = elevation - elevationSpeed * ftime;
+	}
+	glm::mat4 m = glm::rotate(glm::mat4(1.0f), rot, glm::vec3(0, 1, 0));
+	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+	glm::mat4 mvp = controlCamera->getProjectionMatrix() * controlCamera->getViewMatrix() * m;
 	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
 	mesh->render();
+	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 }
 
@@ -174,8 +199,8 @@ void DisplayTexture(CTextureViewer * ctv) {
 	ctv->draw();
 }
 void Finalize(void) {
-	delete ctv;
-	delete ctv2;
+	//delete ctv;
+	//delete ctv2;
 	delete controlCamera;
 	delete mesh;
 }
@@ -225,7 +250,7 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
-
+#ifdef CTV
 	w2 = SDL_CreateWindow("Window title goes here #2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ /* Die if creation failed */
@@ -233,7 +258,7 @@ int main() {
 		SDL_Quit();
 		return 1;
 	}
-	//c2 = SDL_GL_CreateContext(w2);
+#endif
 
 	GLenum rev;
 	glewExperimental = GL_TRUE;
@@ -260,7 +285,8 @@ int main() {
 
 	SDL_Event event;
 	const Uint8 * keys;
-
+	Uint32 old_time, current_time;
+	current_time = SDL_GetTicks();
 	while (!quit){
 		while (SDL_PollEvent(&event)){
 			if (event.type == SDL_QUIT){
@@ -284,28 +310,35 @@ int main() {
 				}
 			}
 		}
+		old_time = current_time;
+		current_time = SDL_GetTicks();
+		ftime = (current_time - old_time) / 1000.0f;
+		//cout << ftime << endl;
 
 		keys = SDL_GetKeyboardState(NULL);
 		if (keys[SDL_SCANCODE_W]) {
-			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getDirection() * movementSpeed));
+			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getDirection() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_S]) {
-			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getDirection() * movementSpeed));
+			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getDirection() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_A]) {
-			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getRight() * movementSpeed));
+			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getRight() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_D]) {
-			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed));
+			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
 		}
+
+#ifdef CTV
+		SDL_GL_MakeCurrent(w2, maincontext);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w2);
+#endif
 
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
 		Display();
 		SDL_GL_SwapWindow(mainwindow);
 
-		SDL_GL_MakeCurrent(w2, maincontext);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w2);
 	}
 
 	Finalize();
@@ -313,7 +346,9 @@ int main() {
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
+#ifdef CTV
 	SDL_DestroyWindow(w2);
+#endif
 	SDL_Quit();
 
 	return 0;
