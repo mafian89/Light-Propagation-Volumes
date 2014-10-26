@@ -31,8 +31,9 @@ Mesh * mesh;
 float movementSpeed = 4.0f;
 float ftime;
 GLuint tex;
+glm::vec3 lightPosition(0.0, 4.0, 2.0);
 
-#define CTV
+//#define CTV
 
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
@@ -139,6 +140,10 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	basicShader.Use();
 		basicShader.AddUniform("mvp");
+		basicShader.AddUniform("mv");
+		basicShader.AddUniform("v");
+		basicShader.AddUniform("mn");
+		basicShader.AddUniform("vLightPos");
 	basicShader.UnUse();
 
 	////////////////////////////////////////////////////
@@ -165,7 +170,6 @@ void Display() {
 	//Camera update
 	controlCamera->computeMatricesFromInputs();
 
-	basicShader.Use();
 	rot = rot + rotSpeed * ftime;
 	if (rot > 360.0)
 		rot = 0.0;
@@ -176,14 +180,24 @@ void Display() {
 	else {
 		elevation = elevation - elevationSpeed * ftime;
 	}
-	glm::mat4 m = glm::rotate(glm::mat4(1.0f), rot, glm::vec3(0, 1, 0));
-	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
-	glm::mat4 mvp = controlCamera->getProjectionMatrix() * controlCamera->getViewMatrix() * m;
-	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	mesh->render();
-	glBindTexture(GL_TEXTURE_2D, 0);
+
+	basicShader.Use();
+		glm::mat4 m = glm::rotate(glm::mat4(1.0f), rot, glm::vec3(0, 1, 0));
+		m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+		//glm::mat4 m = glm::mat4(1.0f);
+		glm::mat4 v = controlCamera->getViewMatrix();
+		glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
+		glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
+		glm::mat4 mv = controlCamera->getViewMatrix() * m;
+		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+		glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
+		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		mesh->render();
+		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 }
 

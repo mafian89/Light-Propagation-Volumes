@@ -1,13 +1,24 @@
 #version 430
 
-uniform mat4 mvp;
+//Location is number from brackets from commnad glEnableVertexAttribArray (n);
 layout(location = 0) in vec3 vPosition;
 layout(location = 1) in vec2 vUv;
+layout(location = 2) in vec3 vNormal;
 
+out vec3 eyePosition,eyeNormal,eyeLightPos;
 out vec2 uv;
+
+uniform mat4 mvp;
+uniform mat3 mn;
+uniform mat4 mv;
+uniform mat4 v;
+uniform vec3 vLightPos;
 
 void main()
 {
 	gl_Position = mvp * vec4(vPosition,1.0);
+	eyePosition = (mv*vec4(vPosition,1)).xyz;
+	eyeNormal = normalize(mn*vNormal);
+	eyeLightPos = (v*vec4(vLightPos,1)).xyz;
 	uv = vUv;
 }

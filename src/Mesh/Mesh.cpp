@@ -136,7 +136,7 @@ void Mesh::MeshEntry::render() {
 Mesh::Mesh(const char *filename)
 {
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(filename, aiProcess_Triangulate); //aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
+	const aiScene *scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_GenSmoothNormals); //aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
 	if(!scene) {
 		printf("Unable to load mesh: %s\n", importer.GetErrorString());
 		return;
