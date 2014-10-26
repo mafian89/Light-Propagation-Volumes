@@ -14,21 +14,27 @@
     <ClCompile Include="..\src\camera\controlCamera.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\fboManager.cpp" />
     <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
+    <ClCompile Include="..\src\textureManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\camera\controlCamera.h" />
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
+    <ClInclude Include="..\src\textureManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\basicShader.frag" />
     <None Include="..\shaders\basicShader.vs" />
+    <None Include="..\shaders\depthPass.frag" />
+    <None Include="..\shaders\depthPass.vs" />
     <None Include="..\shaders\textureViewer.frag" />
     <None Include="..\shaders\textureViewer.vs" />
   </ItemGroup>

@@ -6,6 +6,7 @@ CTextureViewer::CTextureViewer()
 	this->s = new GLSLShader();
 	this->fs = "default.frag";
 	this->vs = "default.vs";
+	this->depth = false;
 	setUpShaders();
 }
 
@@ -15,6 +16,7 @@ CTextureViewer::CTextureViewer(GLuint tex, std::string vs, std::string fs) {
 	this->texture = tex;
 	this->fs = fs;
 	this->vs = vs;
+	this->depth = false;
 	setUpShaders();
 }
 
@@ -33,6 +35,7 @@ void CTextureViewer::draw() {
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 	this->s->Use();
+	glUniform1i((*s)("depth"), this->depth);
 	
 	//Bind texture
 	glActiveTexture(GL_TEXTURE0);
@@ -53,6 +56,10 @@ void CTextureViewer::draw() {
 	
 }
 
+void CTextureViewer::setDepthOnly(bool depth) {
+	this->depth = depth;
+}
+
 //Called only once in constructor
 void CTextureViewer::setUpShaders() {
 	//We need only vertex and fragment shaders
@@ -67,6 +74,7 @@ void CTextureViewer::setUpShaders() {
 	s->AddAttribute("vPosition");
 	s->AddAttribute("vUV");
 	s->AddUniform("texture");
+	s->AddUniform("depth");
 	
 
 	//Quad verticles - omitted z coord, because it will always be 1

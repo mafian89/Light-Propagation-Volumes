@@ -11,6 +11,8 @@
 #include "GLSLShader/GLSLShader.h"
 #include "camera/controlCamera.h"
 #include "Mesh/Mesh.h"
+#include "fboManager.h"
+#include "textureManager.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>

@@ -26,14 +26,17 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader;
+GLSLShader basicShader, depthShader;
 Mesh * mesh;
 float movementSpeed = 4.0f;
 float ftime;
 GLuint tex;
 glm::vec3 lightPosition(0.0, 4.0, 2.0);
+CTextureManager texManager;
+CFboManager * fboManager = new CFboManager();
+GLuint FramebufferName = 0;
 
-//#define CTV
+#define CTV
 
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
@@ -121,8 +124,8 @@ GLuint loadImage(const char* theFileName)
 void Initialize(SDL_Window * w) {
 	tex = loadImage("../textures/texture.png");
 #ifdef CTV
-	ctv = new CTextureViewer(tex, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
-	ctv2 = new CTextureViewer(loadImage("../textures/floor.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 #endif
 	////////////////////////////////////////////////////
 	// SHADERS INIT
@@ -130,6 +133,10 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/basicShader.vs").c_str());
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
+
+	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthPass.vs").c_str());
+	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthPass.frag").c_str());
+	depthShader.CreateAndLinkProgram();
 	////////////////////////////////////////////////////
 	// CAMERA INIT
 	////////////////////////////////////////////////////
@@ -146,10 +153,48 @@ void Initialize(SDL_Window * w) {
 		basicShader.AddUniform("vLightPos");
 	basicShader.UnUse();
 
+	depthShader.Use();
+		depthShader.AddUniform("mvp");
+	depthShader.UnUse();
+
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/cube.obj");
+
+	////////////////////////////////////////////////////
+	// TEXTURE INIT
+	////////////////////////////////////////////////////
+	texManager.createTexture("render_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("depth_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+
+	////////////////////////////////////////////////////
+	// FBO INIT
+	////////////////////////////////////////////////////
+	fboManager->initFbo();
+	fboManager->genRenderBuffer(WIDTH, HEIGHT);
+	fboManager->bindRenderBuffer();
+	fboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["render_tex"]);
+	fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["depth_tex"]);
+	fboManager->setDrawBuffers();
+	if (!fboManager->checkFboStatus()){
+		return;
+	}
+
+	//glGenFramebuffers(1, &FramebufferName);
+	//glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
+
+	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
+	//glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
+
+	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["depth_tex"], 0);
+
+	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+
+	//// Always check that our framebuffer is ok
+	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	//	return;
+
 }
 float rot = 0.0;
 float elevation = 0.0;
@@ -181,14 +226,18 @@ void Display() {
 		elevation = elevation - elevationSpeed * ftime;
 	}
 
+	glm::mat4 m = glm::mat4(1.0f);
+	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
+	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+	//glm::mat4 m = glm::mat4(1.0f);
+	glm::mat4 v = controlCamera->getViewMatrix();
+	glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
+	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
+	glm::mat4 mv = controlCamera->getViewMatrix() * m;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	basicShader.Use();
-		glm::mat4 m = glm::rotate(glm::mat4(1.0f), rot, glm::vec3(0, 1, 0));
-		m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
-		//glm::mat4 m = glm::mat4(1.0f);
-		glm::mat4 v = controlCamera->getViewMatrix();
-		glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
-		glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
-		glm::mat4 mv = controlCamera->getViewMatrix() * m;
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
 		glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
@@ -199,6 +248,13 @@ void Display() {
 		mesh->render();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	//Draw quad on screen
+	glDisable(GL_DEPTH_TEST);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	ctv2->setTexture(texManager["render_tex"]);
+	ctv2->draw();
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
@@ -213,10 +269,13 @@ void DisplayTexture(CTextureViewer * ctv) {
 	ctv->draw();
 }
 void Finalize(void) {
-	//delete ctv;
-	//delete ctv2;
+#ifdef CTV
+	delete ctv;
+	delete ctv2;
+#endif
 	delete controlCamera;
 	delete mesh;
+	delete fboManager;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -290,7 +349,7 @@ int main() {
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
 
-	//SDL_GL_SetSwapInterval(1);
+	SDL_GL_SetSwapInterval(1);
 
 	bool quit = false;
 
@@ -345,6 +404,8 @@ int main() {
 
 #ifdef CTV
 		SDL_GL_MakeCurrent(w2, maincontext);
+		ctv->setTexture(texManager["depth_tex"]);
+		ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
 #endif

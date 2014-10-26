@@ -18,6 +18,7 @@ private:
 	//Default shaders
 	std::string vs;
 	std::string fs;
+	bool depth;
 	void setUpShaders();
 public:
 	CTextureViewer();
@@ -25,6 +26,7 @@ public:
 	void draw();
 	//Setters
 	void setTexture(GLuint tex);
+	void setDepthOnly(bool depth);
 	//Getters
 	GLuint getTexture();
 	~CTextureViewer();
