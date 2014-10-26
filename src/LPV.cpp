@@ -9,6 +9,7 @@
 #pragma comment(lib,"devil.lib")
 #pragma comment(lib,"ILU.lib")
 #pragma comment(lib,"ILUT.lib")
+#pragma comment(lib,"assimp.lib")
 /// etc
 #endif
 
@@ -18,9 +19,16 @@
 
 using namespace std;
 
+#define WIDTH 800
+#define HEIGHT 600
+
 float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
+CControlCamera * controlCamera = new CControlCamera();
+GLSLShader basicShader;
+Mesh * mesh;
+
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
 // taken from: http://r3dux.org/tag/ilutglloadimage/
@@ -104,20 +112,53 @@ GLuint loadImage(const char* theFileName)
 //DevIL
 
 
-void Initialize() {
+void Initialize(SDL_Window * w) {
 	ctv = new CTextureViewer(loadImage("../textures/texture.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(loadImage("../textures/floor.png"), "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
+	////////////////////////////////////////////////////
+	// SHADERS INIT
+	////////////////////////////////////////////////////
+	basicShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/basicShader.vs").c_str());
+	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
+	basicShader.CreateAndLinkProgram();
+	////////////////////////////////////////////////////
+	// CAMERA INIT
+	////////////////////////////////////////////////////
+	controlCamera->initControlCamera(glm::vec3(.0, .0, 5.0), w, 3.14, 0.0, 800, 600, 0.1, 1000.0);
+
+	////////////////////////////////////////////////////
+	// UNIFORMS/ATTRIBUTES SETUP
+	////////////////////////////////////////////////////
+	basicShader.Use();
+		basicShader.AddUniform("mvp");
+	basicShader.UnUse();
+
+	////////////////////////////////////////////////////
+	// LOAD MODELS
+	////////////////////////////////////////////////////
+	mesh = new Mesh("../models/cube.obj");
 }
 void Display() {
 
-	//glEnable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-
+	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//Clear color
+	glClearColor(0.0, 0.0, 0.6, 1.0);
+	//Enable depth testing
+	glEnable(GL_DEPTH_TEST);
+	//View port
+	glViewport(0, 0, WIDTH, HEIGHT);
+	//downsample
+	//glViewport(0,0,width/2,height/2);
 
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	//ctv->draw();
+	//Camera update
+	controlCamera->computeMatricesFromInputs();
+
+	basicShader.Use();
+	glm::mat4 mvp = controlCamera->getProjectionMatrix() * controlCamera->getViewMatrix() * glm::mat4(1.0f);
+	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	mesh->render();
+	basicShader.UnUse();
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
@@ -134,6 +175,8 @@ void DisplayTexture(CTextureViewer * ctv) {
 void Finalize(void) {
 	delete ctv;
 	delete ctv2;
+	delete controlCamera;
+	delete mesh;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -172,7 +215,7 @@ int main() {
 
 	/* Create our window centered at 512x512 resolution */
 	mainwindow = SDL_CreateWindow("Window title goes here", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		512, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!mainwindow){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
@@ -183,7 +226,7 @@ int main() {
 	maincontext = SDL_GL_CreateContext(mainwindow);
 
 	w2 = SDL_CreateWindow("Window title goes here #2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		512, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
@@ -211,8 +254,8 @@ int main() {
 
 	bool quit = false;
 
-	Initialize();
-	Reshape(512, 512);
+	Initialize(mainwindow);
+	Reshape(WIDTH, HEIGHT);
 
 	SDL_Event event;
 
@@ -229,17 +272,24 @@ int main() {
 					SDL_DestroyWindow((event.window.windowID > 1) ? w2 : mainwindow);
 					break;
 				}
-
+			}
+			if (event.type == SDL_MOUSEMOTION) {
+				if (event.motion.state & SDL_BUTTON_LMASK)
+				{
+					controlCamera->moved = true;
+					controlCamera->computeMatricesFromInputs();
+					controlCamera->moved = false;
+				}
 			}
 		}
 
-		SDL_GL_MakeCurrent(w2, maincontext);
-		DisplayTexture(ctv2);
-		SDL_GL_SwapWindow(w2);
-
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
-		DisplayTexture(ctv);
+		Display();
 		SDL_GL_SwapWindow(mainwindow);
+
+		SDL_GL_MakeCurrent(w2, maincontext);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w2);
 	}
 
 	Finalize();
