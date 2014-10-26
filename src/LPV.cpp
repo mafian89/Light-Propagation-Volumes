@@ -137,7 +137,7 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/cube.obj");
+	mesh = new Mesh("../models/mix.obj");
 }
 void Display() {
 

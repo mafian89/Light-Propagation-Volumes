@@ -1,3 +1,5 @@
+//Taken from website: http://www.nexcius.net/2014/04/13/loading-meshes-using-assimp-in-opengl/
+//All credits belong to the author Although I did some changes - #ifdef and include
 #ifndef MESH_H
 #define	MESH_H
 #pragma once
