@@ -28,6 +28,7 @@ CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader;
 Mesh * mesh;
+float movementSpeed = 0.01f;
 
 //DevIL
 // Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
@@ -258,6 +259,7 @@ int main() {
 	Reshape(WIDTH, HEIGHT);
 
 	SDL_Event event;
+	const Uint8 * keys;
 
 	while (!quit){
 		while (SDL_PollEvent(&event)){
@@ -281,6 +283,20 @@ int main() {
 					controlCamera->moved = false;
 				}
 			}
+		}
+
+		keys = SDL_GetKeyboardState(NULL);
+		if (keys[SDL_SCANCODE_W]) {
+			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getDirection() * movementSpeed));
+		}
+		else if (keys[SDL_SCANCODE_S]) {
+			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getDirection() * movementSpeed));
+		}
+		else if (keys[SDL_SCANCODE_A]) {
+			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getRight() * movementSpeed));
+		}
+		else if (keys[SDL_SCANCODE_D]) {
+			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed));
 		}
 
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
