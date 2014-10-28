@@ -2,6 +2,7 @@
 
 //For MRT attachment 0
 layout(location = 0) out vec4 final_color;
+layout(location = 1) out vec4 normals;
 in vec2 uv;
 in vec3 eyePosition,eyeNormal,eyeLightPos;
 
@@ -32,6 +33,8 @@ void main()
 	vec3 ambient = la * ka;
 	vec3 lightIntesity =  (diffuse + spec)*att;
 	final_color = vec4(lightIntesity,1.0);
+
+	normals = vec4(tmpNormal,1.0);
 
     //final_color = texture2D(texture, uv);
 	//final_color = vec4(1.0,0.0,0.0,1.0);

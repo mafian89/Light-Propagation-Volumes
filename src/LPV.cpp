@@ -21,6 +21,7 @@ using namespace std;
 
 #define WIDTH 800
 #define HEIGHT 600
+#define SHADOWMAPSIZE 512
 
 float aspect;
 CTextureViewer * ctv;
@@ -31,10 +32,11 @@ Mesh * mesh;
 float movementSpeed = 4.0f;
 float ftime;
 GLuint tex;
-glm::vec3 lightPosition(0.0, 4.0, 2.0);
+//glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
-GLuint FramebufferName = 0;
+CLightObject * light;
+GLuint depthPassFBO;
 
 #define CTV
 
@@ -123,6 +125,7 @@ GLuint loadImage(const char* theFileName)
 
 void Initialize(SDL_Window * w) {
 	tex = loadImage("../textures/texture.png");
+	light = new CLightObject(glm::vec3(0.0, 4.0, 2.0), glm::vec3(0.5f,2,2));
 #ifdef CTV
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
@@ -166,7 +169,8 @@ void Initialize(SDL_Window * w) {
 	// TEXTURE INIT
 	////////////////////////////////////////////////////
 	texManager.createTexture("render_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("depth_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	texManager.createTexture("normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
@@ -175,25 +179,27 @@ void Initialize(SDL_Window * w) {
 	fboManager->genRenderBuffer(WIDTH, HEIGHT);
 	fboManager->bindRenderBuffer();
 	fboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["render_tex"]);
-	fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["depth_tex"]);
+	fboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["normal_tex"]);
+	//fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["depth_tex"]);
 	fboManager->setDrawBuffers();
 	if (!fboManager->checkFboStatus()){
 		return;
 	}
 
-	//glGenFramebuffers(1, &FramebufferName);
-	//glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
+	glGenFramebuffers(1, &depthPassFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
 
-	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
-	//glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
+	// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
+	glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
 
-	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["depth_tex"], 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["depth_tex"], 0);
 
-	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
 
-	//// Always check that our framebuffer is ok
-	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	//	return;
+	// Always check that our framebuffer is ok
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		return;
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
 float rot = 0.0;
@@ -235,6 +241,18 @@ void Display() {
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
 
+	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
+	depthShader.Use();
+		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		light->computeMatrixes();
+		glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
+		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		mesh->render();
+	depthShader.UnUse();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0, 0, WIDTH, HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	basicShader.Use();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -242,6 +260,7 @@ void Display() {
 		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
 		glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
 		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+		glm::vec3 lightPosition = light->getPosition();
 		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex);
@@ -276,6 +295,7 @@ void Finalize(void) {
 	delete controlCamera;
 	delete mesh;
 	delete fboManager;
+	delete light;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);

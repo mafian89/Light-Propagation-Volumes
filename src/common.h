@@ -13,6 +13,7 @@
 #include "Mesh/Mesh.h"
 #include "fboManager.h"
 #include "textureManager.h"
+#include "CLightObject.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
@@ -23,3 +24,5 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#define SHADOWMAPSIZE 512
