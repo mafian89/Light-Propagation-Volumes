@@ -5,19 +5,24 @@ layout(location = 0) out vec4 final_color;
 layout(location = 1) out vec4 normals;
 in vec2 uv;
 in vec3 eyePosition,eyeNormal,eyeLightPos;
+in vec4 shadowCoord;
 
-uniform sampler2D texture;
+uniform sampler2D tex;
+uniform sampler2DShadow depthTexture;
 
 void main()
 {
+	float shadow = 1.0;
+	if (shadowCoord.w > 0.0)
+		shadow = textureProj(depthTexture, shadowCoord);
 	float distance = length(eyeLightPos.xyz-eyePosition.xyz);
-	float att=1.0/(0.005+0.09*distance+0.01*distance*distance);
+	float att=1.0/(0.0005+0.009*distance+0.0035*distance*distance);
 
 	vec3 ld = vec3(1.0,1.0,1.0);
 	vec3 ls = vec3(1.0,1.0,1.0);
 	vec3 la = vec3(1.0,1.0,1.0);
 
-	vec3 kd = texture2D(texture, uv).rgb;
+	vec3 kd = texture(tex, uv).rgb;
 	vec3 ks = vec3(0.8,0.8,0.8);
 	vec3 ka = vec3(0.1,0.1,0.1);
 	vec3 tmpNormal = normalize(eyeNormal);
@@ -31,7 +36,7 @@ void main()
 	    spec = ls * ks *pow(max(dot(r,v),0.0),8);
 	}
 	vec3 ambient = la * ka;
-	vec3 lightIntesity =  (diffuse + spec)*att;
+	vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
 	final_color = vec4(lightIntesity,1.0);
 
 	normals = vec4(tmpNormal,1.0);

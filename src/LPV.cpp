@@ -29,6 +29,7 @@ CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader, depthShader;
 Mesh * mesh;
+Mesh * mesh2;
 float movementSpeed = 4.0f;
 float ftime;
 GLuint tex;
@@ -37,6 +38,13 @@ CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CLightObject * light;
 GLuint depthPassFBO;
+
+glm::mat4 biasMatrix(
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 0.5, 0.0,
+	0.5, 0.5, 0.5, 1.0
+	);
 
 #define CTV
 
@@ -125,7 +133,7 @@ GLuint loadImage(const char* theFileName)
 
 void Initialize(SDL_Window * w) {
 	tex = loadImage("../textures/texture.png");
-	light = new CLightObject(glm::vec3(0.0, 4.0, 2.0), glm::vec3(0.5f,2,2));
+	light = new CLightObject(glm::vec3(0.0, 20.0, 0.0), glm::vec3(0,2,2));
 #ifdef CTV
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
@@ -154,6 +162,9 @@ void Initialize(SDL_Window * w) {
 		basicShader.AddUniform("v");
 		basicShader.AddUniform("mn");
 		basicShader.AddUniform("vLightPos");
+		basicShader.AddUniform("shadowMatrix");
+		basicShader.AddUniform("tex");
+		basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
 	depthShader.Use();
@@ -163,7 +174,8 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/cube.obj");
+	mesh = new Mesh("../models/mix.obj");
+	mesh2 = new Mesh("../models/plane.obj");
 
 	////////////////////////////////////////////////////
 	// TEXTURE INIT
@@ -199,7 +211,7 @@ void Initialize(SDL_Window * w) {
 	// Always check that our framebuffer is ok
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		return;
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
 float rot = 0.0;
@@ -235,36 +247,55 @@ void Display() {
 	glm::mat4 m = glm::mat4(1.0f);
 	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
 	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
 	glm::mat4 v = controlCamera->getViewMatrix();
 	glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
+	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
+	glm::mat4 m2 = glm::scale(glm::translate(glm::mat4(1.0), glm::vec3(0, -5, 0)), glm::vec3(20));
+	glm::mat4 mvp_light2 = light->getProjMatrix() * light->getViewMatrix() * m2;
 
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_FRONT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
 	depthShader.Use();
 		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		light->computeMatrixes();
-		glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
 		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
 		mesh->render();
+		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(light->getProjMatrix() * light->getViewMatrix() * m2));
+		mesh2->render();
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	glDisable(GL_CULL_FACE);
+	//glCullFace(GL_BACK);
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	basicShader.Use();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+		glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
 		glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
+		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
 		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
 		glm::vec3 lightPosition = light->getPosition();
 		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
 		mesh->render();
+		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light2));
+		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(controlCamera->getProjectionMatrix() * v * m2));
+		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(controlCamera->getViewMatrix() * glm::mat4(1.0)));
+		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(glm::mat3(v*m2)))));
+		mesh2->render();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -294,6 +325,7 @@ void Finalize(void) {
 #endif
 	delete controlCamera;
 	delete mesh;
+	delete mesh2;
 	delete fboManager;
 	delete light;
 }

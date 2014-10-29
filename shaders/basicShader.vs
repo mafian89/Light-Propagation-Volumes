@@ -7,12 +7,14 @@ layout(location = 2) in vec3 vNormal;
 
 out vec3 eyePosition,eyeNormal,eyeLightPos;
 out vec2 uv;
+out vec4 shadowCoord;
 
 uniform mat4 mvp;
 uniform mat3 mn;
 uniform mat4 mv;
 uniform mat4 v;
 uniform vec3 vLightPos;
+uniform mat4 shadowMatrix;
 
 void main()
 {
@@ -21,4 +23,5 @@ void main()
 	eyeNormal = normalize(mn*vNormal);
 	eyeLightPos = (v*vec4(vLightPos,1)).xyz;
 	uv = vUv;
+	shadowCoord = (shadowMatrix * vec4(vPosition,1.0));
 }

@@ -1,7 +1,7 @@
 #include "CLightObject.h"
 
 
-CLightObject::CLightObject() : position(glm::vec3(0.0, 0.0, 0.0)), direction(glm::vec3(0.5f, 2, 2)), up(glm::vec3(0, 1, 0))
+CLightObject::CLightObject() : position(glm::vec3(0.0, 0.0, 0.0)), direction(glm::vec3(0, 2, 2)), up(glm::vec3(0, 1, 0))
 {
 	//computeMatrixes();
 }
@@ -22,10 +22,11 @@ CLightObject::~CLightObject()
 void CLightObject::computeMatrixes() {
 	//float aspec = (float)(SHADOWMAPSIZE) /(float)(SHADOWMAPSIZE);
 	this->ProjectionMatrix = glm::perspective<float>(90.0f, 1.0, 0.1f, 1000.0f);
+	//this->ProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
 	// Camera matrix
 	this->ViewMatrix = glm::lookAt(
 		this->position,
-		this->position - this->direction,
+		this->direction,
 		this->up
 		);
 }

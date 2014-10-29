@@ -76,9 +76,6 @@
     <None Include="..\shaders\textureViewer.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
-    <None Include="..\shaders\basicShader.frag">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
     <None Include="..\shaders\basicShader.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
@@ -86,6 +83,9 @@
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="..\shaders\depthPass.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\basicShader.frag">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

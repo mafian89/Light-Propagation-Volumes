@@ -25,4 +25,4 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define SHADOWMAPSIZE 512
+#define SHADOWMAPSIZE 1024
