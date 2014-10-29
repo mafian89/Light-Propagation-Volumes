@@ -20,9 +20,10 @@ CLightObject::~CLightObject()
 
 
 void CLightObject::computeMatrixes() {
-	//float aspec = (float)(SHADOWMAPSIZE) /(float)(SHADOWMAPSIZE);
+	float aspec = (float)(SHADOWMAPSIZE) /(float)(SHADOWMAPSIZE);
 	this->ProjectionMatrix = glm::perspective<float>(90.0f, 1.0, 0.1f, 1000.0f);
-	//this->ProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
+	//-(float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE/40.0,  -(float)SHADOWMAPSIZE/40.0,
+	//this->ProjectionMatrix = glm::ortho<float>(-(float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, -(float)SHADOWMAPSIZE / 40.0, 0.1f, 100.0f);
 	// Camera matrix
 	this->ViewMatrix = glm::lookAt(
 		this->position,
