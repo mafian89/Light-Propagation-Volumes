@@ -79,13 +79,13 @@
     <None Include="..\shaders\basicShader.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
-    <None Include="..\shaders\depthPass.frag">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
-    <None Include="..\shaders\depthPass.vs">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
     <None Include="..\shaders\basicShader.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\RSMpass.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\RSMpass.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

@@ -21,7 +21,6 @@ using namespace std;
 
 #define WIDTH 800
 #define HEIGHT 600
-#define SHADOWMAPSIZE 512
 
 float aspect;
 CTextureViewer * ctv;
@@ -36,6 +35,7 @@ GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
+CFboManager * RSMFboManager = new CFboManager();
 CLightObject * light;
 GLuint depthPassFBO;
 
@@ -133,7 +133,7 @@ GLuint loadImage(const char* theFileName)
 
 void Initialize(SDL_Window * w) {
 	tex = loadImage("../textures/texture.png");
-	light = new CLightObject(glm::vec3(0.0, 20.0, 0.0), glm::vec3(0,2,2));
+	light = new CLightObject(glm::vec3(0.0, 20.0, -5.0), glm::vec3(0, 2, 2));
 #ifdef CTV
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
@@ -145,8 +145,8 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
 
-	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthPass.vs").c_str());
-	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthPass.frag").c_str());
+	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
+	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
 	depthShader.CreateAndLinkProgram();
 	////////////////////////////////////////////////////
 	// CAMERA INIT
@@ -157,18 +157,20 @@ void Initialize(SDL_Window * w) {
 	// UNIFORMS/ATTRIBUTES SETUP
 	////////////////////////////////////////////////////
 	basicShader.Use();
-		basicShader.AddUniform("mvp");
-		basicShader.AddUniform("mv");
-		basicShader.AddUniform("v");
-		basicShader.AddUniform("mn");
-		basicShader.AddUniform("vLightPos");
-		basicShader.AddUniform("shadowMatrix");
-		basicShader.AddUniform("tex");
-		basicShader.AddUniform("depthTexture");
+	basicShader.AddUniform("mvp");
+	basicShader.AddUniform("mv");
+	basicShader.AddUniform("v");
+	basicShader.AddUniform("mn");
+	basicShader.AddUniform("vLightPos");
+	basicShader.AddUniform("shadowMatrix");
+	basicShader.AddUniform("tex");
+	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
 	depthShader.Use();
-		depthShader.AddUniform("mvp");
+	depthShader.AddUniform("mvp");
+	depthShader.AddUniform("m");
+	depthShader.AddUniform("mn");
 	depthShader.UnUse();
 
 	////////////////////////////////////////////////////
@@ -181,36 +183,48 @@ void Initialize(SDL_Window * w) {
 	// TEXTURE INIT
 	////////////////////////////////////////////////////
 	texManager.createTexture("render_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	texManager.createTexture("rsm_normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_world_space_coords_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_flux_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
 	////////////////////////////////////////////////////
 	fboManager->initFbo();
-	fboManager->genRenderBuffer(WIDTH, HEIGHT);
-	fboManager->bindRenderBuffer();
+	fboManager->genRenderDepthBuffer(WIDTH, HEIGHT);
+	fboManager->bindRenderDepthBuffer();
 	fboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["render_tex"]);
-	fboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["normal_tex"]);
-	//fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["depth_tex"]);
+	//fboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	//fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["rsm_depth_tex"]);
 	fboManager->setDrawBuffers();
 	if (!fboManager->checkFboStatus()){
 		return;
 	}
 
-	glGenFramebuffers(1, &depthPassFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
-
-	// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
-	glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
-
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["depth_tex"], 0);
-
-	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
-
-	// Always check that our framebuffer is ok
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	RSMFboManager->initFbo();
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+	RSMFboManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	RSMFboManager->setDrawBuffers();
+	if (!RSMFboManager->checkFboStatus()){
 		return;
+	}
+
+	//glGenFramebuffers(1, &depthPassFBO);
+	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
+
+	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
+	//glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+
+	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["rsm_depth_tex"], 0);
+
+	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+
+	//// Always check that our framebuffer is ok
+	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	//	return;
 	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
@@ -253,20 +267,27 @@ void Display() {
 	glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
+
 	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
+	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(light->getViewMatrix()*m)));
 	glm::mat4 m2 = glm::scale(glm::translate(glm::mat4(1.0), glm::vec3(0, -5, 0)), glm::vec3(20));
 	glm::mat4 mvp_light2 = light->getProjMatrix() * light->getViewMatrix() * m2;
+	//glm::mat3 mn_light2 = glm::transpose(glm::inverse(glm::mat3(light->getViewMatrix()*m2)));
 
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
+	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	depthShader.Use();
 		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		light->computeMatrixes();
 		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m));
+		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
 		mesh->render();
 		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(light->getProjMatrix() * light->getViewMatrix() * m2));
+		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m2));
+		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light2));
 		mesh2->render();
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -289,7 +310,7 @@ void Display() {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex);
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
 		mesh->render();
 		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light2));
 		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(controlCamera->getProjectionMatrix() * v * m2));
@@ -327,6 +348,7 @@ void Finalize(void) {
 	delete mesh;
 	delete mesh2;
 	delete fboManager;
+	delete RSMFboManager;
 	delete light;
 }
 void Reshape(int width, int height){
@@ -456,7 +478,10 @@ int main() {
 
 #ifdef CTV
 		SDL_GL_MakeCurrent(w2, maincontext);
-		ctv->setTexture(texManager["depth_tex"]);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		ctv->setTexture(texManager["rsm_depth_tex"]);
 		ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
