@@ -14,6 +14,7 @@
 #include "fboManager.h"
 #include "textureManager.h"
 #include "CLightObject.h"
+#include "texUtils.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>

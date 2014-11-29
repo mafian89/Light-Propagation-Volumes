@@ -19,6 +19,7 @@
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
     <ClCompile Include="..\src\textureManager.cpp" />
+    <ClCompile Include="..\src\texUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\camera\controlCamera.h" />
@@ -29,6 +30,7 @@
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
+    <ClInclude Include="..\src\texUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\basicShader.frag" />

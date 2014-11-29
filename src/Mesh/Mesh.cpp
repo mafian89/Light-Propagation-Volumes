@@ -3,19 +3,22 @@
 /**
 *	Constructor, loading the specified aiMesh
 **/
-Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
+Mesh::MeshEntry::MeshEntry(aiMesh *mesh, aiMaterial *mtl) {
 	vbo[VERTEX_BUFFER] = NULL;
 	vbo[TEXCOORD_BUFFER] = NULL;
 	vbo[NORMAL_BUFFER] = NULL;
 	vbo[INDEX_BUFFER] = NULL;
+	//vbo[MATERIAL_BUFFER] = NULL;
 
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
 	elementCount = mesh->mNumFaces * 3;
+	materialIndex = mesh->mMaterialIndex;
 
 	//std::cout << "Faces num: " << mesh->mNumFaces << std::endl;
 	//std::cout << "Elem count num: " << mesh->mNumFaces * 3<< std::endl;
+	std::cout << "materialIndex: " << materialIndex << endl;
 
 	if(mesh->HasPositions()) {
 		//std::cout << "Vertices num: " << mesh->mNumVertices << std::endl;
@@ -93,6 +96,13 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 		delete indices;
 	}
 	
+	//aiString texPath;   //contains filename of texture
+	//if (AI_SUCCESS == mtl->GetTexture(aiTextureType_DIFFUSE, 0, &texPath)) {
+	//	material.textureCount = 1;
+	//}
+	//else {
+	//	material.textureCount = 0;
+	//}
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -118,6 +128,10 @@ Mesh::MeshEntry::~MeshEntry() {
 		glDeleteBuffers(1, &vbo[INDEX_BUFFER]);
 	}
 
+	//if (vbo[MATERIAL_BUFFER]) {
+	//	glDeleteBuffers(1, &vbo[MATERIAL_BUFFER]);
+	//}
+
 	glDeleteVertexArrays(1, &vao);
 }
 
@@ -125,10 +139,34 @@ Mesh::MeshEntry::~MeshEntry() {
 *	Renders this MeshEntry
 **/
 void Mesh::MeshEntry::render() {
+	//glBindBufferRange(GL_UNIFORM_BUFFER, materialUniLoc, myMeshes[nd->mMeshes[n]].uniformBlockIndex, 0, sizeof(struct MyMaterial));  
 	glBindVertexArray(vao);
+	//std::cout << materialIndex << std::endl;
 	glDrawElements(GL_TRIANGLES, elementCount, GL_UNSIGNED_INT, NULL);
 	glBindVertexArray(0);
 }
+
+
+void Mesh::Texture::bind(GLenum unit) {
+	glActiveTexture(unit);
+	glBindTexture(Mesh::Texture::textType, Mesh::Texture::texId);
+}
+
+void Mesh::Texture::load(std::string path) {
+	Mesh::Texture::texId = loadImage(path.c_str());
+	//Mesh::Texture::textType = GL_TEXTURE_2D;
+}
+
+Mesh::Texture::Texture(std::string path, GLenum textType) {
+	Mesh::Texture::path = path;
+	Mesh::Texture::textType = textType;
+	Mesh::Texture::load(path);
+}
+
+Mesh::Texture::~Texture() {
+
+}
+
 
 /**
 *	Mesh constructor, loads the specified filename if supported by Assimp
@@ -143,9 +181,12 @@ Mesh::Mesh(const char *filename)
 	}
 
 	//std::cout << "Num meshes: " << scene->mNumMeshes << std::endl;
+	//I should cycle through all materials instead of harcoding just one
 	for(int i = 0; i < scene->mNumMeshes; ++i) {
-		meshEntries.push_back(new Mesh::MeshEntry(scene->mMeshes[i]));
+		meshEntries.push_back(new Mesh::MeshEntry(scene->mMeshes[i], scene->mMaterials[scene->mMeshes[i]->mMaterialIndex]));
 	}
+
+	//Load materials and textures (aiScene *)
 }
 
 /**
@@ -157,6 +198,11 @@ Mesh::~Mesh(void)
 		delete meshEntries.at(i);
 	}
 	meshEntries.clear();
+
+	for (int i = 0; i < textures.size(); i++) {
+		delete textures.at(i);
+	}
+	textures.clear();
 }
 
 /**
