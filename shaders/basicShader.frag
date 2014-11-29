@@ -13,16 +13,15 @@ uniform sampler2DShadow depthTexture;
 void main()
 {
 	float shadow = 1.0;
-	float bias = 0.00001;
 	vec4 coord = shadowCoord / shadowCoord.w;
 	if (shadowCoord.w > 0.0) {
-		shadow = texture(depthTexture, vec3(coord.xyz)-vec3(bias));
+		shadow = texture(depthTexture, vec3(coord.xyz));
 		//textureProj does perspective division for me
 		//shadow = textureProj(depthTexture, shadowCoord);
 		//shadow = (shadow > 0) ? 1.0 : 0.5;
 	}
 	float distance = length(eyeLightPos.xyz-eyePosition.xyz);
-	float att=1.0/(0.0005+0.009*distance+0.0035*distance*distance);
+	float att=1.0/(0.0005+0.009*distance+0.00095*distance*distance);
 
 	vec3 ld = vec3(1.0,1.0,1.0);
 	vec3 ls = vec3(1.0,1.0,1.0);

@@ -3,7 +3,7 @@
 /**
 *	Constructor, loading the specified aiMesh
 **/
-Mesh::MeshEntry::MeshEntry(aiMesh *mesh, aiMaterial *mtl) {
+Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 	vbo[VERTEX_BUFFER] = NULL;
 	vbo[TEXCOORD_BUFFER] = NULL;
 	vbo[NORMAL_BUFFER] = NULL;
@@ -175,18 +175,42 @@ Mesh::Mesh(const char *filename)
 {
 	Assimp::Importer importer;
 	const aiScene *scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_GenSmoothNormals); //aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
-	if(!scene) {
+	if (!scene) {
 		printf("Unable to load mesh: %s\n", importer.GetErrorString());
 		return;
 	}
 
-	//std::cout << "Num meshes: " << scene->mNumMeshes << std::endl;
-	//I should cycle through all materials instead of harcoding just one
-	for(int i = 0; i < scene->mNumMeshes; ++i) {
-		meshEntries.push_back(new Mesh::MeshEntry(scene->mMeshes[i], scene->mMaterials[scene->mMeshes[i]->mMaterialIndex]));
+	meshEntries.resize(scene->mNumMeshes);
+	textures.resize(scene->mNumMaterials);
+
+	std::cout << "Num meshes: " << scene->mNumMeshes << std::endl;
+	std::cout << "Num materials: " << scene->mNumMaterials << std::endl;
+	for (int i = 0; i < meshEntries.size(); ++i) {
+		meshEntries[i] = new Mesh::MeshEntry(scene->mMeshes[i]);
 	}
 
 	//Load materials and textures (aiScene *)
+	initMaterials(scene);
+}
+
+void Mesh::initMaterials(const aiScene * scene) {
+
+	//Loop over all materials
+	for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
+		const aiMaterial* pMaterial = scene->mMaterials[i];
+		textures[i] = NULL;
+		if (pMaterial->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+			aiString Path;
+			if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &Path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
+				textures[i] = new Mesh::Texture(Path.data, GL_TEXTURE_2D);
+			}
+		}
+
+		if (textures[i] == NULL) {
+			std::cout << "No texture found, using default one!" << std::endl;
+			textures[i] = new Mesh::Texture("../textures/default.png", GL_TEXTURE_2D);
+		}
+	}
 }
 
 /**
@@ -210,6 +234,12 @@ Mesh::~Mesh(void)
 **/
 void Mesh::render() {
 	for(int i = 0; i < meshEntries.size(); ++i) {
+		const unsigned int MaterialIndex = meshEntries[i]->materialIndex;
+
+		if (MaterialIndex < textures.size() && textures[MaterialIndex]) {
+			textures[MaterialIndex]->bind(GL_TEXTURE0);
+		}
+
 		meshEntries.at(i)->render();
 	}
 }

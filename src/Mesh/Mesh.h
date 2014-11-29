@@ -34,7 +34,7 @@ public :
 		//Only one material is supported
 		//MaterialInfo material;
 
-		MeshEntry(aiMesh *mesh, aiMaterial *mtl);
+		MeshEntry(aiMesh *mesh);
 		~MeshEntry();
 
 		void load(aiMesh *mesh);
@@ -55,7 +55,8 @@ public :
 
 	std::vector<MeshEntry*> meshEntries;
 	std::vector<Texture*> textures;
-
+private:
+	void initMaterials(const aiScene *);
 
 public:
 	Mesh(const char *filename);

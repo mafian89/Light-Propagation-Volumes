@@ -38,6 +38,7 @@ CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CLightObject * light;
 GLuint depthPassFBO;
+GLint texture_units;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -52,8 +53,19 @@ glm::mat4 biasMatrix(
 
 
 void Initialize(SDL_Window * w) {
-	tex = loadImage("../textures/texture.png");
-	light = new CLightObject(glm::vec3(0.0, 20.0, -5.0), glm::vec3(0, 2, 2));
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+
+	//tex = loadImage("../textures/texture.png");
+	/*
+	Light POSITION vector: (4.81105, 18.9061, 28.3497)
+	Light DIRECTION vector: (0.0023295, -0.439015, -0.898477)
+	Light horizotnal angle: 3.139
+	Light vertical angle: -0.454502
+	*/
+	//light = new CLightObject(glm::vec3(0.0, 20.0, 5.0), glm::vec3(0, 0, 0));
+	light = new CLightObject(glm::vec3(4.81105, 18.9061, 28.34975), glm::vec3(0.0023295, -0.439015, -0.898477));
+	light->setHorAngle(3.139);
+	light->setVerAngle(-0.454502);
 #ifdef CTV
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
@@ -83,7 +95,6 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("mn");
 	basicShader.AddUniform("vLightPos");
 	basicShader.AddUniform("shadowMatrix");
-	basicShader.AddUniform("tex");
 	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
@@ -96,7 +107,7 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/cube2.obj");
+	mesh = new Mesh("../models/mix.obj");
 	mesh2 = new Mesh("../models/plane.obj");
 
 	////////////////////////////////////////////////////
@@ -196,6 +207,8 @@ void Display() {
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(1, 1);
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	depthShader.Use();
 		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
@@ -212,13 +225,15 @@ void Display() {
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
 	glDisable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	basicShader.Use();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+		//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 		glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
@@ -227,8 +242,6 @@ void Display() {
 		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
 		glm::vec3 lightPosition = light->getPosition();
 		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
 		mesh->render();
@@ -318,7 +331,7 @@ int main() {
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
 #ifdef CTV
-	w2 = SDL_CreateWindow("Window title goes here #2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
@@ -394,6 +407,36 @@ int main() {
 		}
 		else if (keys[SDL_SCANCODE_D]) {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_8]) {
+			light->setPosition(light->getPosition() + (/*glm::vec3(0, 1, 0)*/light->getDirection()* movementSpeed * 2.0f * ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_2]) {
+			light->setPosition(light->getPosition() - (/*glm::vec3(0, 1, 0)*/light->getDirection()* movementSpeed * 2.0f * ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_4]) {
+			light->setPosition(light->getPosition() - (/*glm::vec3(1, 0, 0)*/light->getRight()* movementSpeed * 2.f *ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_6]) {
+			light->setPosition(light->getPosition() + (/*glm::vec3(1, 0, 0)*/light->getRight()* movementSpeed * 2.f* ftime));
+		}
+		//else if (keys[SDL_SCANCODE_KP_9]) {
+		//	light->setPosition(light->getPosition() - (glm::vec3(0, 0, 1)* movementSpeed * ftime));
+		//}
+		//else if (keys[SDL_SCANCODE_KP_3]) {
+		//	light->setPosition(light->getPosition() + (glm::vec3(0, 0, 1)* movementSpeed * ftime));
+		//}
+		else if (keys[SDL_SCANCODE_KP_MINUS]) {
+			light->setVerAngle(light->getVerAngle() - 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_PLUS]) {
+			light->setVerAngle(light->getVerAngle() + 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_DIVIDE]) {
+			light->setHorAngle(light->getHorAngle() + 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_MULTIPLY]) {
+			light->setHorAngle(light->getHorAngle() - 0.01f);
 		}
 
 #ifdef CTV
