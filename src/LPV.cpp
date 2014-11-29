@@ -208,7 +208,8 @@ void Display() {
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
 	glEnable(GL_POLYGON_OFFSET_FILL);
-	glPolygonOffset(1, 1);
+	glPolygonOffset(1, 1);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	depthShader.Use();
 		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
@@ -225,7 +226,8 @@ void Display() {
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glDisable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
 
 	glDisable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
