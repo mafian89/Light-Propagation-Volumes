@@ -21,10 +21,10 @@ CLightObject::~CLightObject()
 
 void CLightObject::computeMatrixes() {
 	float aspec = (float)(SHADOWMAPSIZE) /(float)(SHADOWMAPSIZE);
-	this->ProjectionMatrix = glm::perspective<float>(90.0f, aspec, 0.1f, 100.0f);
-	//this->ProjectionMatrix = glm::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 800.0f);
-	//-(float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE/40.0,  -(float)SHADOWMAPSIZE/40.0,
-	//this->ProjectionMatrix = glm::ortho<float>(-(float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, (float)SHADOWMAPSIZE / 40.0, -(float)SHADOWMAPSIZE / 40.0, 0.1f, 100.0f);
+	//It doesn't matter which of these two projection function you will choose
+	//They both do the same thing
+	//this->ProjectionMatrix = glm::perspective<float>(90.0f, aspec, 0.1f, 100.0f);
+	this->ProjectionMatrix = glm::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 100.0f);
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	//Viz http://www.lighthouse3d.com/wp-content/uploads/2011/04/vfpoints2.gif

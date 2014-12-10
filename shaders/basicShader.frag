@@ -15,7 +15,7 @@ void main()
 	float shadow = 1.0;
 	vec4 coord = shadowCoord / shadowCoord.w;
 	if (shadowCoord.w > 0.0) {
-		shadow = texture(depthTexture, vec3(coord.xyz));
+		shadow = texture(depthTexture, vec3(coord.xyz)-vec3(0.00001));
 		//textureProj does perspective division for me
 		//shadow = textureProj(depthTexture, shadowCoord);
 		//shadow = (shadow > 0) ? 1.0 : 0.5;

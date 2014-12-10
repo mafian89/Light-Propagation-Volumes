@@ -200,10 +200,10 @@ void Display() {
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
 
 	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
-	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(light->getViewMatrix()*m)));
+	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
 	glm::mat4 m2 = glm::scale(glm::translate(glm::mat4(1.0), glm::vec3(0, -5, 0)), glm::vec3(20));
 	glm::mat4 mvp_light2 = light->getProjMatrix() * light->getViewMatrix() * m2;
-	//glm::mat3 mn_light2 = glm::transpose(glm::inverse(glm::mat3(light->getViewMatrix()*m2)));
+	//glm::mat3 mn_light2 = glm::transpose(glm::inverse(glm::mat3(m2)));
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
@@ -446,8 +446,9 @@ int main() {
 		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
 		//rsm_world_space_coords_tex
 		//rsm_normal_tex
-		ctv->setTexture(texManager["rsm_depth_tex"]);
-		ctv->setDepthOnly(true);
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_normal_tex"]);
+		//ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
 #endif
