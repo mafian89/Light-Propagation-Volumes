@@ -447,7 +447,7 @@ int main() {
 		//rsm_world_space_coords_tex
 		//rsm_normal_tex
 		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_normal_tex"]);
+		ctv->setTexture(texManager["rsm_flux_tex"]);
 		//ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);

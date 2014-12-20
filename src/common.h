@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <iostream>
 #include <stdlib.h>
+#include <ctime>
+#include <math.h>
+#include <vector>
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>

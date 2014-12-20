@@ -8,5 +8,6 @@
 // taken from: http://r3dux.org/tag/ilutglloadimage/
 GLuint loadImage(const char* theFileName);
 //DevIL
+std::vector< float > generateRandomSamplingPattern(int numSamples, float r_max );
 
 #endif
