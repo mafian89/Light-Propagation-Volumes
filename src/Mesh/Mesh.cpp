@@ -3,7 +3,8 @@
 /**
 *	Constructor, loading the specified aiMesh
 **/
-Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
+Mesh::MeshEntry::MeshEntry(aiMesh *mesh, Mesh &parent) : parent( parent ) {
+
 	vbo[VERTEX_BUFFER] = NULL;
 	vbo[TEXCOORD_BUFFER] = NULL;
 	vbo[NORMAL_BUFFER] = NULL;
@@ -27,6 +28,26 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 			vertices[i * 3] = mesh->mVertices[i].x;
 			vertices[i * 3 + 1] = mesh->mVertices[i].y;
 			vertices[i * 3 + 2] = mesh->mVertices[i].z;
+
+			if (mesh->mVertices[i].x < parent.tmpMin.x) {
+				parent.tmpMin.x = mesh->mVertices[i].x;
+			}
+			if (mesh->mVertices[i].y < parent.tmpMin.y) {
+				parent.tmpMin.y = mesh->mVertices[i].y;
+			}
+			if (mesh->mVertices[i].z < parent.tmpMin.z) {
+				parent.tmpMin.z = mesh->mVertices[i].z;
+			}
+
+			if (mesh->mVertices[i].x > parent.tmpMax.x) {
+				parent.tmpMax.x = mesh->mVertices[i].x;
+			}
+			if (mesh->mVertices[i].y > parent.tmpMax.y) {
+				parent.tmpMax.y = mesh->mVertices[i].y;
+			}
+			if (mesh->mVertices[i].z > parent.tmpMax.z) {
+				parent.tmpMax.z = mesh->mVertices[i].z;
+			}
 		}
 
 		glGenBuffers(1, &vbo[VERTEX_BUFFER]);
@@ -171,7 +192,7 @@ Mesh::Texture::~Texture() {
 /**
 *	Mesh constructor, loads the specified filename if supported by Assimp
 **/
-Mesh::Mesh(const char *filename)
+Mesh::Mesh(const char *filename) 
 {
 	Assimp::Importer importer;
 	const aiScene *scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_GenSmoothNormals); //aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
@@ -186,11 +207,14 @@ Mesh::Mesh(const char *filename)
 	std::cout << "Num meshes: " << scene->mNumMeshes << std::endl;
 	std::cout << "Num materials: " << scene->mNumMaterials << std::endl;
 	for (int i = 0; i < meshEntries.size(); ++i) {
-		meshEntries[i] = new Mesh::MeshEntry(scene->mMeshes[i]);
+		meshEntries[i] = new Mesh::MeshEntry(scene->mMeshes[i], *this);
 	}
 
 	//Load materials and textures (aiScene *)
 	initMaterials(scene);
+
+	boundingBox = new CBoundingBox(this->tmpMin, this->tmpMax);
+	//local = CBoundingBox();
 }
 
 void Mesh::initMaterials(const aiScene * scene) {
@@ -201,9 +225,9 @@ void Mesh::initMaterials(const aiScene * scene) {
 		textures[i] = NULL;
 		if (pMaterial->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
 			aiString Path;
-			std::string a = "../textures/";
+			std::string dir = "../textures/";
 			if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &Path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
-				std::string FullPath = a + Path.data;
+				std::string FullPath = dir + Path.data;
 				textures[i] = new Mesh::Texture(FullPath, GL_TEXTURE_2D);
 			}
 		}
@@ -229,6 +253,12 @@ Mesh::~Mesh(void)
 		delete textures.at(i);
 	}
 	textures.clear();
+
+	delete boundingBox;
+}
+
+CBoundingBox* Mesh::getBoundingBox() {
+	return this->boundingBox;
 }
 
 /**

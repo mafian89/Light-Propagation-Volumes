@@ -189,6 +189,7 @@ void Display() {
 	//Camera update
 	controlCamera->computeMatricesFromInputs();
 
+#ifdef ROT
 	rot = rot + rotSpeed * ftime;
 	if (rot > 360.0)
 		rot = 0.0;
@@ -199,10 +200,13 @@ void Display() {
 	else {
 		elevation = elevation - elevationSpeed * ftime;
 	}
+#endif
 
 	glm::mat4 m = glm::mat4(1.0f);
-	//m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
-	//m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+#ifdef ROT
+	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
+	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+#endif
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
 	glm::mat4 v = controlCamera->getViewMatrix();
@@ -504,7 +508,8 @@ int main() {
 		SDL_GL_SwapWindow(mainwindow);
 
 	}
-
+	//std::cout << "MAX: " << mesh->getBoundingBox()->getMax().x << "," << mesh->getBoundingBox()->getMax().y << "," << mesh->getBoundingBox()->getMax().z << std::endl;
+	//std::cout << "MIN: " << mesh->getBoundingBox()->getMin().x << "," << mesh->getBoundingBox()->getMin().y << "," << mesh->getBoundingBox()->getMin().z << std::endl;
 	Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */

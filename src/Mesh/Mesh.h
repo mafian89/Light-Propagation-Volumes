@@ -8,8 +8,17 @@
 
 #include <vector>
 
+// Forward declaration so the compiler knows what CBoundingBox is
+class CBoundingBox;
+
 class Mesh
 {
+private:
+	void initMaterials(const aiScene *);
+	CBoundingBox* boundingBox;
+	glm::vec3 tmpMin = glm::vec3(0.0f);
+	glm::vec3 tmpMax = glm::vec3(0.0f);
+	
 public :
 	struct MeshEntry {
 		static enum BUFFERS {
@@ -30,15 +39,17 @@ public :
 
 		unsigned int elementCount;
 		unsigned int materialIndex;
+		Mesh &parent;
 
 		//Only one material is supported
 		//MaterialInfo material;
 
-		MeshEntry(aiMesh *mesh);
+		MeshEntry(aiMesh *mesh, Mesh &parent);
 		~MeshEntry();
 
 		void load(aiMesh *mesh);
 		void render();
+		
 	};
 
 	struct Texture {
@@ -55,14 +66,12 @@ public :
 
 	std::vector<MeshEntry*> meshEntries;
 	std::vector<Texture*> textures;
-private:
-	void initMaterials(const aiScene *);
 
-public:
 	Mesh(const char *filename);
 	~Mesh(void);
 
 	void render();
+	CBoundingBox* getBoundingBox();
 };
 
 #endif

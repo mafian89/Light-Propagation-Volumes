@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera\controlCamera.cpp" />
+    <ClCompile Include="..\src\CBoundingBox.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
@@ -23,6 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\camera\controlCamera.h" />
+    <ClInclude Include="..\src\CBoundingBox.h" />
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
