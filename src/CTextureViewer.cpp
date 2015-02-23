@@ -73,7 +73,7 @@ void CTextureViewer::setUpShaders() {
 	//Create uniforms and attributes (filled later)
 	s->AddAttribute("vPosition");
 	s->AddAttribute("vUV");
-	s->AddUniform("texture");
+	s->AddUniform("tex");
 	s->AddUniform("depth");
 	
 

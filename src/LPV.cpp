@@ -28,7 +28,6 @@ CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader, depthShader;
 Mesh * mesh;
-Mesh * mesh2;
 float movementSpeed = 4.0f;
 float ftime;
 GLuint tex;
@@ -47,7 +46,7 @@ glm::mat4 biasMatrix(
 	0.5, 0.5, 0.5, 1.0
 	);
 
-#define CTV
+//#define CTV
 
 
 
@@ -61,15 +60,20 @@ void Initialize(SDL_Window * w) {
 	Light DIRECTION vector: (0.0023295, -0.439015, -0.898477)
 	Light horizotnal angle: 3.139
 	Light vertical angle: -0.454502
+
+	Light POSITION vector: (7.00241, 48.0456, 10.0773)
+	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
+	Light horizotnal angle: 3.139
+	Light vertical angle: -0.9745
 	*/
 	//light = new CLightObject(glm::vec3(0.0, 20.0, 5.0), glm::vec3(0, 0, 0));
-	light = new CLightObject(glm::vec3(4.81105, 18.9061, 28.34975), glm::vec3(0.0023295, -0.439015, -0.898477));
+	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
 	light->setHorAngle(3.139);
-	light->setVerAngle(-0.454502);
-#ifdef CTV
+	light->setVerAngle(-0.9745);
+
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
-#endif
+
 	////////////////////////////////////////////////////
 	// SHADERS INIT
 	////////////////////////////////////////////////////
@@ -83,7 +87,15 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// CAMERA INIT
 	////////////////////////////////////////////////////
-	controlCamera->initControlCamera(glm::vec3(.0, .0, 5.0), w, 3.14, 0.0, 800, 600, 0.1, 1000.0);
+	/*
+	Camera POSITION vector: (11.7542, 14.1148, 0.822185)
+	Camera UP vector: (-0.436604, 0.873719, -0.214456)	
+	Camera RIGHT vector: (0.440876, 0, -0.897568)
+	Camera DIRECTION vector: (-0.783916, -0.486431, -0.385826)
+	Camera horizotnal angle: 4.25502
+	Camera vertical angle: -0.508
+	*/
+	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, 800, 600, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -107,8 +119,7 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/mix.obj");
-	mesh2 = new Mesh("../models/plane.obj");
+	mesh = new Mesh("../models/sponza.obj");
 
 	////////////////////////////////////////////////////
 	// TEXTURE INIT
@@ -117,7 +128,7 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_world_space_coords_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
@@ -190,8 +201,8 @@ void Display() {
 	}
 
 	glm::mat4 m = glm::mat4(1.0f);
-	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
-	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+	//m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
+	//m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
 	glm::mat4 v = controlCamera->getViewMatrix();
@@ -201,9 +212,6 @@ void Display() {
 
 	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
 	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
-	glm::mat4 m2 = glm::scale(glm::translate(glm::mat4(1.0), glm::vec3(0, -5, 0)), glm::vec3(20));
-	glm::mat4 mvp_light2 = light->getProjMatrix() * light->getViewMatrix() * m2;
-	//glm::mat3 mn_light2 = glm::transpose(glm::inverse(glm::mat3(m2)));
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
@@ -219,10 +227,6 @@ void Display() {
 		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m));
 		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
 		mesh->render();
-		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(light->getProjMatrix() * light->getViewMatrix() * m2));
-		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m2));
-		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light2));
-		mesh2->render();
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -247,11 +251,6 @@ void Display() {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
 		mesh->render();
-		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light2));
-		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(controlCamera->getProjectionMatrix() * v * m2));
-		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(controlCamera->getViewMatrix() * glm::mat4(1.0)));
-		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(glm::mat3(v*m2)))));
-		mesh2->render();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -275,13 +274,12 @@ void DisplayTexture(CTextureViewer * ctv) {
 	ctv->draw();
 }
 void Finalize(void) {
-#ifdef CTV
+
 	delete ctv;
 	delete ctv2;
-#endif
+
 	delete controlCamera;
 	delete mesh;
-	delete mesh2;
 	delete fboManager;
 	delete RSMFboManager;
 	delete light;
@@ -332,10 +330,37 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
-#ifdef CTV
+
 	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+#ifdef CTV
+	SDL_Window *w3;
+	w3 = SDL_CreateWindow("Window title goes here #3", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w3){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Window *w4;
+	w4 = SDL_CreateWindow("Window title goes here #4", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w4){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Window *w5;
+	w5 = SDL_CreateWindow("Window title goes here #4", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w5){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
@@ -442,6 +467,28 @@ int main() {
 		}
 
 #ifdef CTV
+
+		SDL_GL_MakeCurrent(w3, maincontext);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_normal_tex"]);
+		//ctv->setDepthOnly(true);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w3);
+
+		SDL_GL_MakeCurrent(w4, maincontext);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_world_space_coords_tex"]);
+		//ctv->setDepthOnly(true);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w4);
+#endif
+
 		SDL_GL_MakeCurrent(w2, maincontext);
 		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
 		//rsm_world_space_coords_tex
@@ -451,7 +498,6 @@ int main() {
 		//ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
-#endif
 
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
 		Display();
@@ -464,9 +510,8 @@ int main() {
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-#ifdef CTV
 	SDL_DestroyWindow(w2);
-#endif
+
 	SDL_Quit();
 
 	return 0;

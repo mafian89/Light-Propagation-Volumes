@@ -8,7 +8,8 @@ in vec3 eyePosition,eyeNormal,eyeLightPos;
 in vec4 shadowCoord;
 
 uniform sampler2D tex;
-layout(binding=5) uniform sampler2DShadow depthTexture;
+//layout(binding=5)
+uniform sampler2DShadow depthTexture;
 
 void main()
 {

@@ -18,7 +18,7 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh) {
 
 	//std::cout << "Faces num: " << mesh->mNumFaces << std::endl;
 	//std::cout << "Elem count num: " << mesh->mNumFaces * 3<< std::endl;
-	std::cout << "materialIndex: " << materialIndex << endl;
+	//std::cout << "materialIndex: " << materialIndex << endl;
 
 	if(mesh->HasPositions()) {
 		//std::cout << "Vertices num: " << mesh->mNumVertices << std::endl;
@@ -201,13 +201,15 @@ void Mesh::initMaterials(const aiScene * scene) {
 		textures[i] = NULL;
 		if (pMaterial->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
 			aiString Path;
+			std::string a = "../textures/";
 			if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &Path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
-				textures[i] = new Mesh::Texture(Path.data, GL_TEXTURE_2D);
+				std::string FullPath = a + Path.data;
+				textures[i] = new Mesh::Texture(FullPath, GL_TEXTURE_2D);
 			}
 		}
 
 		if (textures[i] == NULL) {
-			std::cout << "No texture found, using default one!" << std::endl;
+			//std::cout << "No texture found, using default one!" << std::endl;
 			textures[i] = new Mesh::Texture("../textures/default.png", GL_TEXTURE_2D);
 		}
 	}

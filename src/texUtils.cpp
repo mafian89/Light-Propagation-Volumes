@@ -19,6 +19,8 @@ GLuint loadImage(const char* theFileName)
 
 	success = ilLoadImage(theFileName); 	// Load the image file
 
+	std::cout << theFileName << std::endl;
+
 	// If we managed to load the image, then we can start to do things with it...
 	if (success)
 	{
