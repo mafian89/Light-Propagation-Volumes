@@ -114,7 +114,7 @@ void CTextureViewer::setUpShaders() {
 	glEnableVertexAttribArray((*s)["vUV"]);
 	glVertexAttribPointer((*s)["vUV"], 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (GLvoid*)(sizeof(float)* 8));
 
-	glUniform1i((*s)("texture"), 0);
+	glUniform1i((*s)("tex"), 0);
 
 	s->UnUse();
 	//unbind buffer
