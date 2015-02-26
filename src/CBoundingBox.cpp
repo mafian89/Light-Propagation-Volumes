@@ -29,6 +29,17 @@ std::vector<glm::vec3> CBoundingBox::getDebugDrawPoints() {
 }
 
 void CBoundingBox::calculatePointDimensions() {
+	//std::cout << max.x - min.x << ", " << max.y - min.y << ", " << max.z - min.z << std::endl;
+	volSize = max - min;
+	float maxLength = std::max(volSize.x, std::max(volSize.y, volSize.z));
+	cellSize = maxLength / MAX_GRID_SIZE;
+
+	width = int(volSize.x / cellSize + 0.5f);
+	height = int(volSize.y / cellSize + 0.5f);
+	depth = int(volSize.z / cellSize + 0.5f);
+
+	std::cout << maxLength << " cellsize: " << cellSize << std::endl;
+	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
 	/*
 
 	--FRONT--

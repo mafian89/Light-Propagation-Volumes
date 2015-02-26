@@ -4,6 +4,7 @@
 #include <ctime>
 #include <math.h>
 #include <vector>
+#include <algorithm>    // std::max
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
@@ -34,3 +35,4 @@
 
 #define SHADOWMAPSIZE 1024
 #define TEXTUREDIR "../textures/"
+#define MAX_GRID_SIZE 64

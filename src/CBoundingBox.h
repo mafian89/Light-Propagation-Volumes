@@ -11,6 +11,8 @@ private:
 	std::vector<glm::vec3> debugDrawPoints;
 	glm::vec3 min;
 	glm::vec3 max;
+	glm::vec3 volSize;
+	float width, height, depth, cellSize;
 	void calculatePointDimensions();
 public:
 	CBoundingBox();
