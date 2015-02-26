@@ -6,14 +6,22 @@ DebugDrawer::DebugDrawer()
 
 }
 
-DebugDrawer::DebugDrawer(GLenum mode, const std::vector<glm::vec3> &p, const std::vector<glm::vec2> &uv, const std::vector<float> &i)
-: useIndicies(true), useUv(true), mode(mode), p(p), uv(uv),i(i) {
+DebugDrawer::DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std::vector<glm::vec2> *uv, const std::vector<float> *i)
+: useIndicies(true), useUv(true), mode(mode) {
 
-	if (!p.empty()) {
-		if (uv.empty())
+	if (p != NULL) {
+		this->p = *p;
+
+		if (uv == NULL)
 			useUv = false;
-		if (i.empty())
+		else
+			this->uv = *uv;
+
+		if (i == NULL)
 			useIndicies = false;
+		else
+			this->i = *i;
+
 		setUpShaders();
 	}
 	else {
@@ -107,9 +115,6 @@ void DebugDrawer::setUpShaders() {
 
 DebugDrawer::~DebugDrawer() {
 	delete s;
-	p.clear();
-	uv.clear();
-	i.clear();
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &VAO);
 	//glDeleteBuffers(1, &EBO);

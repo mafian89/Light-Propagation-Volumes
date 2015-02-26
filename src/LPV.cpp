@@ -121,7 +121,7 @@ void Initialize(SDL_Window * w) {
 	// LOAD MODELS
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
-	dd = new DebugDrawer(GL_LINE_STRIP, (mesh->getBoundingBox()->getDebugDrawPoints()), std::vector<glm::vec2>(), std::vector<float>());
+	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
