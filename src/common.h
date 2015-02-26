@@ -19,6 +19,8 @@
 #include "CLightObject.h"
 #include "texUtils.h"
 #include "CBoundingBox.h"
+#include "IDrawable.h"
+#include "DebugDrawer.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
@@ -31,3 +33,4 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define SHADOWMAPSIZE 1024
+#define TEXTUREDIR "../textures/"

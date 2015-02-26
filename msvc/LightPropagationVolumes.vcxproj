@@ -15,6 +15,7 @@
     <ClCompile Include="..\src\CBoundingBox.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\DebugDrawer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
     <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
@@ -28,8 +29,10 @@
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
+    <ClInclude Include="..\src\IDrawable.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
     <ClInclude Include="..\src\texUtils.h" />
@@ -37,6 +40,8 @@
   <ItemGroup>
     <None Include="..\shaders\basicShader.frag" />
     <None Include="..\shaders\basicShader.vs" />
+    <None Include="..\shaders\debugDraw.frag" />
+    <None Include="..\shaders\debugDraw.vs" />
     <None Include="..\shaders\RSMpass.frag" />
     <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />

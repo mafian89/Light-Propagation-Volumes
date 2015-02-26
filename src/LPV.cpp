@@ -28,7 +28,7 @@ CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader, depthShader;
 Mesh * mesh;
-float movementSpeed = 4.0f;
+float movementSpeed = 50.0f;
 float ftime;
 GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
@@ -36,6 +36,7 @@ CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CLightObject * light;
+DebugDrawer * dd;
 GLuint depthPassFBO;
 GLint texture_units;
 
@@ -120,6 +121,13 @@ void Initialize(SDL_Window * w) {
 	// LOAD MODELS
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
+	dd = new DebugDrawer(GL_LINE_STRIP, (mesh->getBoundingBox()->getDebugDrawPoints()), std::vector<glm::vec2>(), std::vector<float>());
+	//std::vector<glm::vec3> p;
+	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
+	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
+	//p.push_back(glm::vec3(-1.0, -1.0, 1.0));
+	//p.push_back(glm::vec3(1.0, -1.0, 1.0));
+	//dd = new DebugDrawer(GL_POINTS, &(p), NULL, NULL);
 
 	////////////////////////////////////////////////////
 	// TEXTURE INIT
@@ -169,6 +177,8 @@ void Initialize(SDL_Window * w) {
 	//	return;
 	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 float rot = 0.0;
 float elevation = 0.0;
@@ -257,8 +267,12 @@ void Display() {
 		mesh->render();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	dd->setVPMatrix(mvp);
+	dd->draw();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 	//Draw quad on screen
 	glDisable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -287,6 +301,7 @@ void Finalize(void) {
 	delete fboManager;
 	delete RSMFboManager;
 	delete light;
+	delete dd;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -510,6 +525,16 @@ int main() {
 	}
 	//std::cout << "MAX: " << mesh->getBoundingBox()->getMax().x << "," << mesh->getBoundingBox()->getMax().y << "," << mesh->getBoundingBox()->getMax().z << std::endl;
 	//std::cout << "MIN: " << mesh->getBoundingBox()->getMin().x << "," << mesh->getBoundingBox()->getMin().y << "," << mesh->getBoundingBox()->getMin().z << std::endl;
+	//std::vector<glm::vec3> points = mesh->getBoundingBox()->getPoints();
+	//for (std::vector<glm::vec3>::iterator it = points.begin(); it != points.end(); ++it) {
+	//	std::cout << it - points.begin() + 1<< ": " << (*it).x << ", " << (*it).y << ", " << (*it).z << std::endl;
+	//}
+
+	//std::vector<glm::vec2> uv;
+	//uv.push_back(glm::vec2(1.0));
+
+
+
 	Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */

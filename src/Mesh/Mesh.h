@@ -16,8 +16,8 @@ class Mesh
 private:
 	void initMaterials(const aiScene *);
 	CBoundingBox* boundingBox;
-	glm::vec3 tmpMin = glm::vec3(0.0f);
-	glm::vec3 tmpMax = glm::vec3(0.0f);
+	glm::vec3 tmpMin;
+	glm::vec3 tmpMax;
 	
 public :
 	struct MeshEntry {

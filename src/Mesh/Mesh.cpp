@@ -215,6 +215,7 @@ Mesh::Mesh(const char *filename)
 
 	boundingBox = new CBoundingBox(this->tmpMin, this->tmpMax);
 	//local = CBoundingBox();
+
 }
 
 void Mesh::initMaterials(const aiScene * scene) {
@@ -225,7 +226,7 @@ void Mesh::initMaterials(const aiScene * scene) {
 		textures[i] = NULL;
 		if (pMaterial->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
 			aiString Path;
-			std::string dir = "../textures/";
+			std::string dir = TEXTUREDIR;
 			if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &Path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
 				std::string FullPath = dir + Path.data;
 				textures[i] = new Mesh::Texture(FullPath, GL_TEXTURE_2D);
