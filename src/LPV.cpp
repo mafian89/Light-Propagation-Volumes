@@ -21,23 +21,25 @@ using namespace std;
 
 #define WIDTH 800
 #define HEIGHT 600
-#define SHADOWMAPSIZE 512
 
 float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, depthShader;
+GLSLShader basicShader, depthShader, shadowMap;
 Mesh * mesh;
-Mesh * mesh2;
-float movementSpeed = 4.0f;
+float movementSpeed = 10.0f;
 float ftime;
 GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
+CFboManager * RSMFboManager = new CFboManager();
+CFboManager * ShadowMapManager = new CFboManager();
 CLightObject * light;
+DebugDrawer * dd;
 GLuint depthPassFBO;
+GLint texture_units;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -46,98 +48,45 @@ glm::mat4 biasMatrix(
 	0.5, 0.5, 0.5, 1.0
 	);
 
-#define CTV
+//#define CTV
 
-//DevIL
-// Function load a image, turn it into a texture, and return the texture ID as a GLuint for use
-// taken from: http://r3dux.org/tag/ilutglloadimage/
-GLuint loadImage(const char* theFileName)
-{
-	ILuint imageID;				// Create an image ID as a ULuint
 
-	GLuint textureID;			// Create a texture ID as a GLuint
-
-	ILboolean success;			// Create a flag to keep track of success/failure
-
-	ILenum error;				// Create a flag to keep track of the IL error state
-
-	ilGenImages(1, &imageID); 		// Generate the image ID
-
-	ilBindImage(imageID); 			// Bind the image
-
-	success = ilLoadImage(theFileName); 	// Load the image file
-
-	// If we managed to load the image, then we can start to do things with it...
-	if (success)
-	{
-		// If the image is flipped (i.e. upside-down and mirrored, flip it the right way up!)
-		ILinfo ImageInfo;
-		iluGetImageInfo(&ImageInfo);
-		if (ImageInfo.Origin == IL_ORIGIN_UPPER_LEFT)
-		{
-			iluFlipImage();
-		}
-
-		// Convert the image into a suitable format to work with
-		// NOTE: If your image contains alpha channel you can replace IL_RGB with IL_RGBA
-		success = ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
-
-		// Quit out if we failed the conversion
-		if (!success)
-		{
-			error = ilGetError();
-			std::cout << "Image conversion failed - IL reports error: " << error << " - " << iluErrorString(error) << std::endl;
-			exit(-1);
-		}
-
-		// Generate a new texture
-		glGenTextures(1, &textureID);
-
-		// Bind the texture to a name
-		glBindTexture(GL_TEXTURE_2D, textureID);
-
-		// Set texture clamping method
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-		// Set texture interpolation method to use linear interpolation (no MIPMAPS)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-		// Specify the texture specification
-		glTexImage2D(GL_TEXTURE_2D, 				// Type of texture
-			0,				// Pyramid level (for mip-mapping) - 0 is the top level
-			ilGetInteger(IL_IMAGE_FORMAT),	// Internal pixel format to use. Can be a generic type like GL_RGB or GL_RGBA, or a sized type
-			ilGetInteger(IL_IMAGE_WIDTH),	// Image width
-			ilGetInteger(IL_IMAGE_HEIGHT),	// Image height
-			0,				// Border width in pixels (can either be 1 or 0)
-			ilGetInteger(IL_IMAGE_FORMAT),	// Format of image pixel data
-			GL_UNSIGNED_BYTE,		// Image data type
-			ilGetData());			// The actual image data itself
-	}
-	else // If we failed to open the image file in the first place...
-	{
-		error = ilGetError();
-		std::cout << "Image load failed - IL reports error: " << error << " - " << iluErrorString(error) << std::endl;
-		exit(-1);
-	}
-
-	ilDeleteImages(1, &imageID); // Because we have already copied image data into texture data we can release memory used by image.
-
-	std::cout << "Texture creation successful." << std::endl;
-
-	return textureID; // Return the GLuint to the texture so you can use it!
-}
-//DevIL
 
 
 void Initialize(SDL_Window * w) {
-	tex = loadImage("../textures/texture.png");
-	light = new CLightObject(glm::vec3(0.0, 20.0, 0.0), glm::vec3(0,2,2));
-#ifdef CTV
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+
+	//tex = loadImage("../textures/texture.png");
+	/*
+	Light POSITION vector: (4.81105, 18.9061, 28.3497)
+	Light DIRECTION vector: (0.0023295, -0.439015, -0.898477)
+	Light horizotnal angle: 3.139
+	Light vertical angle: -0.454502
+
+	Light POSITION vector: (7.00241, 48.0456, 10.0773)
+	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
+	Light horizotnal angle: 3.139
+	Light vertical angle: -0.9745
+
+	Light POSITION vector: (17.34, 2.04, 0)
+	Light DIRECTION vector: (-0.972737, 0.198669, -0.119638)
+	Light horizotnal angle: 4.59001
+	Light vertical angle: 0.2
+	*/
+	
+#ifdef DEBUGLIGHT
+	light = new CLightObject(glm::vec3(17.34, 2.04, 0), glm::vec3(-0.972737, 0.198669, -0.119638));
+	light->setHorAngle(4.59001);
+	light->setVerAngle(0.2);
+#else
+	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
+	light->setHorAngle(3.139);
+	light->setVerAngle(-0.9745);
+#endif
+
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
-#endif
+
 	////////////////////////////////////////////////////
 	// SHADERS INIT
 	////////////////////////////////////////////////////
@@ -145,74 +94,121 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
 
-	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthPass.vs").c_str());
-	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthPass.frag").c_str());
+	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
+	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
 	depthShader.CreateAndLinkProgram();
+
+	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
+	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
+	shadowMap.CreateAndLinkProgram();
 	////////////////////////////////////////////////////
 	// CAMERA INIT
 	////////////////////////////////////////////////////
-	controlCamera->initControlCamera(glm::vec3(.0, .0, 5.0), w, 3.14, 0.0, 800, 600, 0.1, 1000.0);
+	/*
+	Camera POSITION vector: (11.7542, 14.1148, 0.822185)
+	Camera UP vector: (-0.436604, 0.873719, -0.214456)	
+	Camera RIGHT vector: (0.440876, 0, -0.897568)
+	Camera DIRECTION vector: (-0.783916, -0.486431, -0.385826)
+	Camera horizotnal angle: 4.25502
+	Camera vertical angle: -0.508
+	*/
+	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, 800, 600, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
 	////////////////////////////////////////////////////
 	basicShader.Use();
-		basicShader.AddUniform("mvp");
-		basicShader.AddUniform("mv");
-		basicShader.AddUniform("v");
-		basicShader.AddUniform("mn");
-		basicShader.AddUniform("vLightPos");
-		basicShader.AddUniform("shadowMatrix");
-		basicShader.AddUniform("tex");
-		basicShader.AddUniform("depthTexture");
+	basicShader.AddUniform("mvp");
+	basicShader.AddUniform("mv");
+	basicShader.AddUniform("v");
+	basicShader.AddUniform("mn");
+	basicShader.AddUniform("vLightPos");
+	basicShader.AddUniform("shadowMatrix");
+	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
 	depthShader.Use();
-		depthShader.AddUniform("mvp");
+	depthShader.AddUniform("mvp");
+	depthShader.AddUniform("m");
+	depthShader.AddUniform("mn");
 	depthShader.UnUse();
+
+	shadowMap.Use();
+	shadowMap.AddUniform("mvp");
+	shadowMap.UnUse();
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/mix.obj");
-	mesh2 = new Mesh("../models/plane.obj");
+	mesh = new Mesh("../models/sponza.obj");
+	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
+	//std::vector<glm::vec3> p;
+	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
+	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
+	//p.push_back(glm::vec3(-1.0, -1.0, 1.0));
+	//p.push_back(glm::vec3(1.0, -1.0, 1.0));
+	//dd = new DebugDrawer(GL_POINTS, &(p), NULL, NULL);
 
 	////////////////////////////////////////////////////
 	// TEXTURE INIT
 	////////////////////////////////////////////////////
 	texManager.createTexture("render_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_NEAREST, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	texManager.createTexture("rsm_normal_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
 	////////////////////////////////////////////////////
 	fboManager->initFbo();
-	fboManager->genRenderBuffer(WIDTH, HEIGHT);
-	fboManager->bindRenderBuffer();
+	fboManager->genRenderDepthBuffer(WIDTH, HEIGHT);
+	fboManager->bindRenderDepthBuffer();
 	fboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["render_tex"]);
-	fboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["normal_tex"]);
-	//fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["depth_tex"]);
+	//fboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	//fboManager->bindToFbo(GL_DEPTH_ATTACHMENT,GL_TEXTURE_2D,texManager["rsm_depth_tex"]);
 	fboManager->setDrawBuffers();
 	if (!fboManager->checkFboStatus()){
 		return;
 	}
 
-	glGenFramebuffers(1, &depthPassFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
-
-	// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
-	glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
-
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["depth_tex"], 0);
-
-	glDrawBuffer(GL_NONE); // No color buffer is drawn to.
-
-	// Always check that our framebuffer is ok
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	RSMFboManager->initFbo();
+	RSMFboManager->genRenderDepthBuffer(WIDTH, HEIGHT);
+	RSMFboManager->bindRenderDepthBuffer();
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+	//RSMFboManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	RSMFboManager->setDrawBuffers();
+	if (!RSMFboManager->checkFboStatus()){
 		return;
+	}
+
+	ShadowMapManager->initFbo();
+	ShadowMapManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	ShadowMapManager->setDrawBuffers();
+	if (!ShadowMapManager->checkFboStatus()) {
+		return;
+	}
+
+	//glGenFramebuffers(1, &depthPassFBO);
+	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
+
+	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
+	//glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+
+	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["rsm_depth_tex"], 0);
+
+	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
+
+	//// Always check that our framebuffer is ok
+	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	//	return;
 	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 float rot = 0.0;
 float elevation = 0.0;
@@ -226,13 +222,14 @@ void Display() {
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	//View port
-	glViewport(0, 0, WIDTH, HEIGHT);
+	//glViewport(0, 0, WIDTH, HEIGHT);
 	//downsample
 	//glViewport(0,0,width/2,height/2);
 
 	//Camera update
 	controlCamera->computeMatricesFromInputs();
 
+#ifdef ROT
 	rot = rot + rotSpeed * ftime;
 	if (rot > 360.0)
 		rot = 0.0;
@@ -243,33 +240,54 @@ void Display() {
 	else {
 		elevation = elevation - elevationSpeed * ftime;
 	}
+#endif
 
 	glm::mat4 m = glm::mat4(1.0f);
+#ifdef ROT
 	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
 	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
+#endif
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
 	glm::mat4 v = controlCamera->getViewMatrix();
 	glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
-	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
-	glm::mat4 m2 = glm::scale(glm::translate(glm::mat4(1.0), glm::vec3(0, -5, 0)), glm::vec3(20));
-	glm::mat4 mvp_light2 = light->getProjMatrix() * light->getViewMatrix() * m2;
 
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
+	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
+	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
+
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(1, 1);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, ShadowMapManager->getFboId());
+	shadowMap.Use();
+	glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		light->computeMatrixes();
+		glUniformMatrix4fv(shadowMap("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		mesh->render();
+	shadowMap.UnUse();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	depthShader.Use();
-		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
+		glViewport(0, 0, RSMSIZE, RSMSIZE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		light->computeMatrixes();
 		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m));
+		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
 		mesh->render();
-		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(light->getProjMatrix() * light->getViewMatrix() * m2));
-		mesh2->render();
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	
+
 
 	glDisable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
@@ -277,7 +295,7 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	basicShader.Use();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+		//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 		glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
@@ -286,20 +304,17 @@ void Display() {
 		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
 		glm::vec3 lightPosition = light->getPosition();
 		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex);
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texManager["depth_tex"]);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
 		mesh->render();
-		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light2));
-		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(controlCamera->getProjectionMatrix() * v * m2));
-		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(controlCamera->getViewMatrix() * glm::mat4(1.0)));
-		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(glm::mat3(v*m2)))));
-		mesh2->render();
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	dd->setVPMatrix(mvp);
+	dd->draw();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 	//Draw quad on screen
 	glDisable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -319,15 +334,16 @@ void DisplayTexture(CTextureViewer * ctv) {
 	ctv->draw();
 }
 void Finalize(void) {
-#ifdef CTV
+
 	delete ctv;
 	delete ctv2;
-#endif
+
 	delete controlCamera;
 	delete mesh;
-	delete mesh2;
 	delete fboManager;
+	delete RSMFboManager;
 	delete light;
+	delete dd;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -375,10 +391,37 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
-#ifdef CTV
-	w2 = SDL_CreateWindow("Window title goes here #2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+
+	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+#ifdef CTV
+	SDL_Window *w3;
+	w3 = SDL_CreateWindow("Window title goes here #3", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w3){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Window *w4;
+	w4 = SDL_CreateWindow("Window title goes here #4", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w4){ /* Die if creation failed */
+		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Window *w5;
+	w5 = SDL_CreateWindow("Window title goes here #4", 50, 50,
+		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!w5){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
@@ -453,29 +496,94 @@ int main() {
 		else if (keys[SDL_SCANCODE_D]) {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
 		}
+		else if (keys[SDL_SCANCODE_KP_8]) {
+			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_2]) {
+			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_4]) {
+			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f *ftime));
+		}
+		else if (keys[SDL_SCANCODE_KP_6]) {
+			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f* ftime));
+		}
+		//else if (keys[SDL_SCANCODE_KP_9]) {
+		//	light->setPosition(light->getPosition() - (glm::vec3(0, 0, 1)* movementSpeed * ftime));
+		//}
+		//else if (keys[SDL_SCANCODE_KP_3]) {
+		//	light->setPosition(light->getPosition() + (glm::vec3(0, 0, 1)* movementSpeed * ftime));
+		//}
+		else if (keys[SDL_SCANCODE_KP_MINUS]) {
+			light->setVerAngle(light->getVerAngle() - 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_PLUS]) {
+			light->setVerAngle(light->getVerAngle() + 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_DIVIDE]) {
+			light->setHorAngle(light->getHorAngle() + 0.01f);
+		}
+		else if (keys[SDL_SCANCODE_KP_MULTIPLY]) {
+			light->setHorAngle(light->getHorAngle() - 0.01f);
+		}
 
 #ifdef CTV
+
+		SDL_GL_MakeCurrent(w3, maincontext);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_normal_tex"]);
+		//ctv->setDepthOnly(true);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w3);
+
+		SDL_GL_MakeCurrent(w4, maincontext);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_world_space_coords_tex"]);
+		//ctv->setDepthOnly(true);
+		DisplayTexture(ctv);
+		SDL_GL_SwapWindow(w4);
+#endif
+
 		SDL_GL_MakeCurrent(w2, maincontext);
-		ctv->setTexture(texManager["depth_tex"]);
-		ctv->setDepthOnly(true);
+		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//rsm_world_space_coords_tex
+		//rsm_normal_tex
+		//rsm_flux_tex
+		ctv->setTexture(texManager["rsm_flux_tex"]);
+		//ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
-#endif
 
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
 		Display();
 		SDL_GL_SwapWindow(mainwindow);
 
 	}
+	//std::cout << "MAX: " << mesh->getBoundingBox()->getMax().x << "," << mesh->getBoundingBox()->getMax().y << "," << mesh->getBoundingBox()->getMax().z << std::endl;
+	//std::cout << "MIN: " << mesh->getBoundingBox()->getMin().x << "," << mesh->getBoundingBox()->getMin().y << "," << mesh->getBoundingBox()->getMin().z << std::endl;
+	//std::vector<glm::vec3> points = mesh->getBoundingBox()->getPoints();
+	//for (std::vector<glm::vec3>::iterator it = points.begin(); it != points.end(); ++it) {
+	//	std::cout << it - points.begin() + 1<< ": " << (*it).x << ", " << (*it).y << ", " << (*it).z << std::endl;
+	//}
+
+	//std::vector<glm::vec2> uv;
+	//uv.push_back(glm::vec2(1.0));
+
+
 
 	Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-#ifdef CTV
 	SDL_DestroyWindow(w2);
-#endif
+
 	SDL_Quit();
 
 	return 0;

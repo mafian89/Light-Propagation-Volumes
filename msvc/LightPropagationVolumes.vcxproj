@@ -12,29 +12,40 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera\controlCamera.cpp" />
+    <ClCompile Include="..\src\CBoundingBox.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\DebugDrawer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
     <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
     <ClCompile Include="..\src\textureManager.cpp" />
+    <ClCompile Include="..\src\texUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\camera\controlCamera.h" />
+    <ClInclude Include="..\src\CBoundingBox.h" />
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
+    <ClInclude Include="..\src\IDrawable.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
+    <ClInclude Include="..\src\texUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\basicShader.frag" />
     <None Include="..\shaders\basicShader.vs" />
-    <None Include="..\shaders\depthPass.frag" />
-    <None Include="..\shaders\depthPass.vs" />
+    <None Include="..\shaders\debugDraw.frag" />
+    <None Include="..\shaders\debugDraw.vs" />
+    <None Include="..\shaders\depthOnly.frag" />
+    <None Include="..\shaders\depthOnly.vs" />
+    <None Include="..\shaders\RSMpass.frag" />
+    <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />
     <None Include="..\shaders\textureViewer.vs" />
   </ItemGroup>
@@ -46,7 +57,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v100</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -68,6 +79,9 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>../bin/</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>../bin/</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -94,11 +108,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>D:\DP_include_libs\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>D:\DP_include_libs\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

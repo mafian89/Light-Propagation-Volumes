@@ -42,6 +42,15 @@
     <ClCompile Include="..\src\textureManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\texUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\CBoundingBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\DebugDrawer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\common.h">
@@ -68,6 +77,18 @@
     <ClInclude Include="..\src\textureManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\texUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\CBoundingBox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\IDrawable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\DebugDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\textureViewer.frag">
@@ -79,13 +100,25 @@
     <None Include="..\shaders\basicShader.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
-    <None Include="..\shaders\depthPass.frag">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
-    <None Include="..\shaders\depthPass.vs">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
     <None Include="..\shaders\basicShader.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\RSMpass.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\RSMpass.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\debugDraw.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\debugDraw.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\depthOnly.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\depthOnly.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

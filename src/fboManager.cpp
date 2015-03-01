@@ -1,7 +1,7 @@
 #include "fboManager.h"
 
 CFboManager::CFboManager() {
-	useRenderBuffer = false;
+	useRenderDepthBuffer = false;
 	attachmentCount = 0;
 	/*for(int i=0;i<5;i++) {
 		mrt[i] = GL_COLOR_ATTACHMENT0+i;
@@ -10,8 +10,8 @@ CFboManager::CFboManager() {
 
 CFboManager::~CFboManager() {
 	glDeleteFramebuffers(1, &_fboId);
-	if(useRenderBuffer) {
-		glDeleteRenderbuffers(1, &_renderBufferId);
+	if(useRenderDepthBuffer) {
+		glDeleteRenderbuffers(1, &_renderDepthBufferId);
 	}
 }
 
@@ -19,16 +19,16 @@ void CFboManager::initFbo() {
 	glGenFramebuffers(1, &_fboId);
 }
 
-void CFboManager::genRenderBuffer(unsigned w, unsigned h) {
-	glGenRenderbuffers(1,&_renderBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, _renderBufferId);
+void CFboManager::genRenderDepthBuffer(unsigned w, unsigned h) {
+	glGenRenderbuffers(1,&_renderDepthBufferId);
+	glBindRenderbuffer(GL_RENDERBUFFER, _renderDepthBufferId);
 	glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT,w,h);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
-void CFboManager::bindRenderBuffer() {
+void CFboManager::bindRenderDepthBuffer() {
 	glBindFramebuffer(GL_FRAMEBUFFER,_fboId);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,_renderBufferId);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,_renderDepthBufferId);
 	//glBindFramebuffer(GL_FRAMEBUFFER,0);
 }
 

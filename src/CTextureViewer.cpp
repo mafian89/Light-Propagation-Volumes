@@ -73,7 +73,7 @@ void CTextureViewer::setUpShaders() {
 	//Create uniforms and attributes (filled later)
 	s->AddAttribute("vPosition");
 	s->AddAttribute("vUV");
-	s->AddUniform("texture");
+	s->AddUniform("tex");
 	s->AddUniform("depth");
 	
 
@@ -114,7 +114,7 @@ void CTextureViewer::setUpShaders() {
 	glEnableVertexAttribArray((*s)["vUV"]);
 	glVertexAttribPointer((*s)["vUV"], 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (GLvoid*)(sizeof(float)* 8));
 
-	glUniform1i((*s)("texture"), 0);
+	glUniform1i((*s)("tex"), 0);
 
 	s->UnUse();
 	//unbind buffer

@@ -8,16 +8,16 @@ public:
 	CFboManager();
 	~CFboManager();
 	bool checkFboStatus();
-	void genRenderBuffer(unsigned w, unsigned h);
-	void bindRenderBuffer();
+	void genRenderDepthBuffer(unsigned w, unsigned h);
+	void bindRenderDepthBuffer();
 	void bindToFbo(GLenum type, GLenum texture, GLuint textureId);
 	void initFbo();
 	void setDrawBuffers();
 	GLuint getFboId();
 private:
 	GLuint _fboId;
-	GLuint _renderBufferId;
-	bool useRenderBuffer;
+	GLuint _renderDepthBufferId;
+	bool useRenderDepthBuffer;
 	unsigned attachmentCount;
 	GLenum mrt[6];
 };
