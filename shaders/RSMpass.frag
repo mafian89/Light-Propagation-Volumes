@@ -9,7 +9,7 @@ uniform sampler2D matTex;
 layout(location=0) out vec4 worldPos;
 layout(location=1) out vec4 normal;
 layout(location=2) out vec4 flux;
-layout(location=3) out float fragmentdepth;
+//layout(location=3) out float fragmentdepth;
 
 void main() {
 	float uniformFlux = 1.0f;
@@ -20,5 +20,5 @@ void main() {
 	worldPos = pos;
 	normal = vec4(eyeNormal,1.0);
 	flux = vec4(diffuse,resFlux);
-	fragmentdepth = gl_FragCoord.z;
+	//fragmentdepth = gl_FragCoord.z;
 }

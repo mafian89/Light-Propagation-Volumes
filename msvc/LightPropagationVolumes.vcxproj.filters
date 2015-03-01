@@ -115,5 +115,11 @@
     <None Include="..\shaders\debugDraw.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\depthOnly.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\depthOnly.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

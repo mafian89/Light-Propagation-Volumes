@@ -39,7 +39,26 @@ void CBoundingBox::calculatePointDimensions() {
 	depth = int(volSize.z / cellSize + 0.5f);
 
 	std::cout << maxLength << " cellsize: " << cellSize << std::endl;
+	std::cout << "volSize: " << volSize.x << "x" << volSize.y << "x" << volSize.z << std::endl;
 	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
+
+	width = int(std::ceilf(volSize.x / cellSize));
+	height = int(std::ceilf(volSize.y / cellSize));
+	depth = int(std::ceilf(volSize.z / cellSize));
+	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
+
+	width = int(volSize.x / cellSize);
+	height = int(volSize.y / cellSize);
+	depth = int(volSize.z / cellSize);
+	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
+
+
+	width = (volSize.x / cellSize);
+	height = (volSize.y / cellSize);
+	depth = (volSize.z / cellSize);
+	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
+
+	std::cout << int(28.1) << " " << int(28.5) << " " << int(28.9) << std::endl;
 	/*
 
 	--FRONT--

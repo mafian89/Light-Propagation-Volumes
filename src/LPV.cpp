@@ -26,15 +26,16 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, depthShader;
+GLSLShader basicShader, depthShader, shadowMap;
 Mesh * mesh;
-float movementSpeed = 50.0f;
+float movementSpeed = 10.0f;
 float ftime;
 GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
+CFboManager * ShadowMapManager = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
 GLuint depthPassFBO;
@@ -66,11 +67,22 @@ void Initialize(SDL_Window * w) {
 	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
 	Light horizotnal angle: 3.139
 	Light vertical angle: -0.9745
+
+	Light POSITION vector: (17.34, 2.04, 0)
+	Light DIRECTION vector: (-0.972737, 0.198669, -0.119638)
+	Light horizotnal angle: 4.59001
+	Light vertical angle: 0.2
 	*/
-	//light = new CLightObject(glm::vec3(0.0, 20.0, 5.0), glm::vec3(0, 0, 0));
+	
+#ifdef DEBUGLIGHT
+	light = new CLightObject(glm::vec3(17.34, 2.04, 0), glm::vec3(-0.972737, 0.198669, -0.119638));
+	light->setHorAngle(4.59001);
+	light->setVerAngle(0.2);
+#else
 	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-0.9745);
+#endif
 
 	ctv = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
 	ctv2 = new CTextureViewer(0, "../shaders/textureViewer.vs", "../shaders/textureViewer.frag");
@@ -85,6 +97,10 @@ void Initialize(SDL_Window * w) {
 	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
 	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
 	depthShader.CreateAndLinkProgram();
+
+	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
+	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
+	shadowMap.CreateAndLinkProgram();
 	////////////////////////////////////////////////////
 	// CAMERA INIT
 	////////////////////////////////////////////////////
@@ -117,6 +133,10 @@ void Initialize(SDL_Window * w) {
 	depthShader.AddUniform("mn");
 	depthShader.UnUse();
 
+	shadowMap.Use();
+	shadowMap.AddUniform("mvp");
+	shadowMap.UnUse();
+
 	////////////////////////////////////////////////////
 	// LOAD MODELS
 	////////////////////////////////////////////////////
@@ -133,10 +153,11 @@ void Initialize(SDL_Window * w) {
 	// TEXTURE INIT
 	////////////////////////////////////////////////////
 	texManager.createTexture("render_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("rsm_normal_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("rsm_world_space_coords_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
-	texManager.createTexture("rsm_flux_tex", "", WIDTH, HEIGHT, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_normal_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
+	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
@@ -153,12 +174,21 @@ void Initialize(SDL_Window * w) {
 	}
 
 	RSMFboManager->initFbo();
+	RSMFboManager->genRenderDepthBuffer(WIDTH, HEIGHT);
+	RSMFboManager->bindRenderDepthBuffer();
 	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
 	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
 	RSMFboManager->bindToFbo(GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
-	RSMFboManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	//RSMFboManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
 	RSMFboManager->setDrawBuffers();
 	if (!RSMFboManager->checkFboStatus()){
+		return;
+	}
+
+	ShadowMapManager->initFbo();
+	ShadowMapManager->bindToFbo(GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	ShadowMapManager->setDrawBuffers();
+	if (!ShadowMapManager->checkFboStatus()) {
 		return;
 	}
 
@@ -178,7 +208,7 @@ void Initialize(SDL_Window * w) {
 	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 float rot = 0.0;
 float elevation = 0.0;
@@ -192,7 +222,7 @@ void Display() {
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	//View port
-	glViewport(0, 0, WIDTH, HEIGHT);
+	//glViewport(0, 0, WIDTH, HEIGHT);
 	//downsample
 	//glViewport(0,0,width/2,height/2);
 
@@ -232,9 +262,21 @@ void Display() {
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(1, 1);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, ShadowMapManager->getFboId());
+	shadowMap.Use();
+	glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		light->computeMatrixes();
+		glUniformMatrix4fv(shadowMap("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		mesh->render();
+	shadowMap.UnUse();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	depthShader.Use();
-		glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
+		glViewport(0, 0, RSMSIZE, RSMSIZE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		light->computeMatrixes();
 		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
@@ -244,7 +286,7 @@ void Display() {
 	depthShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glDisable(GL_POLYGON_OFFSET_FILL);
+	
 
 
 	glDisable(GL_CULL_FACE);
@@ -455,16 +497,16 @@ int main() {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_8]) {
-			light->setPosition(light->getPosition() + (/*glm::vec3(0, 1, 0)*/light->getDirection()* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_2]) {
-			light->setPosition(light->getPosition() - (/*glm::vec3(0, 1, 0)*/light->getDirection()* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_4]) {
-			light->setPosition(light->getPosition() - (/*glm::vec3(1, 0, 0)*/light->getRight()* movementSpeed * 2.f *ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f *ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_6]) {
-			light->setPosition(light->getPosition() + (/*glm::vec3(1, 0, 0)*/light->getRight()* movementSpeed * 2.f* ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f* ftime));
 		}
 		//else if (keys[SDL_SCANCODE_KP_9]) {
 		//	light->setPosition(light->getPosition() - (glm::vec3(0, 0, 1)* movementSpeed * ftime));

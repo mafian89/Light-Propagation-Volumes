@@ -29,7 +29,15 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh, Mesh &parent) : parent( parent ) {
 			vertices[i * 3 + 1] = mesh->mVertices[i].y;
 			vertices[i * 3 + 2] = mesh->mVertices[i].z;
 
-			if (mesh->mVertices[i].x < parent.tmpMin.x) {
+			parent.tmpMin.x = std::fminf(mesh->mVertices[i].x, parent.tmpMin.x);
+			parent.tmpMin.y = std::fminf(mesh->mVertices[i].y, parent.tmpMin.y);
+			parent.tmpMin.z = std::fminf(mesh->mVertices[i].z, parent.tmpMin.z);
+
+			parent.tmpMax.x = std::fmaxf(mesh->mVertices[i].x, parent.tmpMax.x);
+			parent.tmpMax.y = std::fmaxf(mesh->mVertices[i].y, parent.tmpMax.y);
+			parent.tmpMax.z = std::fmaxf(mesh->mVertices[i].z, parent.tmpMax.z);
+
+			/*if (mesh->mVertices[i].x < parent.tmpMin.x) {
 				parent.tmpMin.x = mesh->mVertices[i].x;
 			}
 			if (mesh->mVertices[i].y < parent.tmpMin.y) {
@@ -47,7 +55,7 @@ Mesh::MeshEntry::MeshEntry(aiMesh *mesh, Mesh &parent) : parent( parent ) {
 			}
 			if (mesh->mVertices[i].z > parent.tmpMax.z) {
 				parent.tmpMax.z = mesh->mVertices[i].z;
-			}
+			}*/
 		}
 
 		glGenBuffers(1, &vbo[VERTEX_BUFFER]);
