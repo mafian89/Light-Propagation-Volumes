@@ -25,7 +25,7 @@ void CLightObject::computeMatrixes() {
 	//They both do the same thing
 	this->ProjectionMatrix = glm::perspective<float>(90.0f, aspec, 0.1f, 1000.0f);
 	//this->ProjectionMatrix = glm::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1000.0f);
-	//this->ProjectionMatrix = glm::ortho<float>(-10,10,-10,10,-10,20);
+	//this->ProjectionMatrix = glm::ortho<float>(-40,40,-40,40,-100,100);
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	//Viz http://www.lighthouse3d.com/wp-content/uploads/2011/04/vfpoints2.gif

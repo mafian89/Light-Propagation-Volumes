@@ -48,6 +48,10 @@ void CFboManager::bindToFbo(GLenum type, GLenum texture, GLuint textureId) {
 	//glBindFramebuffer(GL_FRAMEBUFFER,0);
 }
 
+void CFboManager::bindLayeredTextureToFbo(GLenum type, GLenum texture, GLuint textureId, GLint layer) {
+
+}
+
 GLuint CFboManager::getFboId() {
 	return _fboId;
 }

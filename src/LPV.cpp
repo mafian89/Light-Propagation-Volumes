@@ -6,9 +6,11 @@
 #pragma comment(lib, "SDL2.lib")
 #pragma comment(lib, "OpenGL32.lib")
 #pragma comment(lib, "glew32.lib")
+
 #pragma comment(lib,"devil.lib")
 #pragma comment(lib,"ILU.lib")
-#pragma comment(lib,"ILUT.lib")
+//#pragma comment(lib,"ILUT.lib")
+
 #pragma comment(lib,"assimp.lib")
 /// etc
 #endif
@@ -39,7 +41,7 @@ CFboManager * ShadowMapManager = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
 GLuint depthPassFBO;
-GLint texture_units;
+GLint texture_units, max_color_attachments;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -50,12 +52,15 @@ glm::mat4 biasMatrix(
 
 //#define CTV
 
+//TEST TEXTURE
+GLuint testImageTexture;
 
 
 
 void Initialize(SDL_Window * w) {
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
-
+	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
+	//std::cout << "Max color attachments: " << max_color_attachments << std::endl;
 	//tex = loadImage("../textures/texture.png");
 	/*
 	Light POSITION vector: (4.81105, 18.9061, 28.3497)
@@ -93,7 +98,7 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/basicShader.vs").c_str());
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
-
+	
 	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
 	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
 	depthShader.CreateAndLinkProgram();
@@ -112,7 +117,7 @@ void Initialize(SDL_Window * w) {
 	Camera horizotnal angle: 4.25502
 	Camera vertical angle: -0.508
 	*/
-	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, 800, 600, 1.0, 1000.0);
+	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -126,7 +131,7 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("shadowMatrix");
 	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
-
+	
 	depthShader.Use();
 	depthShader.AddUniform("mvp");
 	depthShader.AddUniform("m");
@@ -209,11 +214,24 @@ void Initialize(SDL_Window * w) {
 
 	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	//TEST TEXTURE INIT
+	glGenTextures(1, &testImageTexture);
+	glBindTexture(GL_TEXTURE_3D, testImageTexture);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, mesh->getBoundingBox()->getW(), mesh->getBoundingBox()->getH(), mesh->getBoundingBox()->getD(), 0, GL_RED, GL_FLOAT, NULL);
+	//navazani vrstvy celociselne textury na image unit
+	//glBindImageTexture(1, testImageTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
 }
 float rot = 0.0;
 float elevation = 0.0;
 float rotSpeed = 30.0f;
 float elevationSpeed = 1.0f;
+bool drawn = false;
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -310,8 +328,15 @@ void Display() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 
+
+	//glClampColorARB(GL_CLAMP_VERTEX_COLOR, GL_FALSE);
+	//glClampColorARB(GL_CLAMP_FRAGMENT_COLOR, GL_FALSE);
+	glBindImageTexture(1, testImageTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
 	dd->setVPMatrix(mvp);
 	dd->draw();
+	//glClampColorARB(GL_CLAMP_VERTEX_COLOR, GL_TRUE);
+	//glClampColorARB(GL_CLAMP_FRAGMENT_COLOR, GL_TRUE);
+
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
@@ -320,6 +345,18 @@ void Display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
+
+	
+	//if (!drawn) {
+	//	unsigned int size = 64 *27 * 39*sizeof(float);
+	//	float *pixels = new float[size];
+	//	glGetTextureImage(testImageTexture, 0, GL_RED, GL_FLOAT, 4*sizeof(float), &pixels[0]);
+	//	drawn = true;
+	//	for (int i = 0; i < (64 * 27 * 39); i++) {
+	//		if (pixels[i] > 0.0)
+	//			std::cout << pixels[i];
+	//	}
+	//}
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
@@ -350,14 +387,13 @@ void Reshape(int width, int height){
 	aspect = float(height) / float(width);
 }
 
-
 int main() {
 
-	ilutRenderer(ILUT_OPENGL);
+	//ilutRenderer(ILUT_OPENGL);
 	ilInit();
 	iluInit();
-	ilutInit();
-	ilutRenderer(ILUT_OPENGL);
+	//ilutInit();
+
 
 	SDL_Window *mainwindow; /* Our window handle */
 	SDL_GLContext maincontext; /* Our opengl context handle */
@@ -372,12 +408,13 @@ int main() {
 	/* Request opengl 4.4 context. */
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	/* Turn on double buffering with a 24bit Z buffer.
 	* You may need to change this to 16 or 32 for your system */
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	//SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
 	/* Create our window centered at 512x512 resolution */
@@ -391,10 +428,11 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
+	//SDL_GL_MakeCurrent(mainwindow, maincontext);
 
 	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w2){ /* Die if creation failed */
+	if (!w2){ // Die if creation failed 
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
@@ -440,6 +478,7 @@ int main() {
 		std::cout << "GLEW Init: Success!" << std::endl;
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
+
 	
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
@@ -447,6 +486,21 @@ int main() {
 	SDL_GL_SetSwapInterval(1);
 
 	bool quit = false;
+
+	/*std::cout << "OpenGL 2.0: " << ((GLEW_VERSION_2_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 2.1: " << ((GLEW_VERSION_2_1 != 0) ? "Available" : "Unavailable") << std::endl;
+
+	std::cout << "OpenGL 3.0: " << ((GLEW_VERSION_3_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.1: " << ((GLEW_VERSION_3_1 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.2: " << ((GLEW_VERSION_3_2 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.3: " << ((GLEW_VERSION_3_3 != 0) ? "Available" : "Unavailable") << std::endl;
+
+	std::cout << "OpenGL 4.0: " << ((GLEW_VERSION_4_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.1: " << ((GLEW_VERSION_4_1 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.2: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.3: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.4: " << ((GLEW_VERSION_4_4 != 0) ? "Available" : "Unavailable") << std::endl;
+	//std::cout << "OpenGL 4.5: " << ((GLEW_VERSION_4_5 != 0) ? "Available" : "Unavailable") << std::endl;*/
 
 	Initialize(mainwindow);
 	Reshape(WIDTH, HEIGHT);
@@ -497,16 +551,16 @@ int main() {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_8]) {
-			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_2]) {
-			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_4]) {
-			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f *ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)* movementSpeed * 2.f *ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_6]) {
-			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f* ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)* movementSpeed * 2.f* ftime));
 		}
 		//else if (keys[SDL_SCANCODE_KP_9]) {
 		//	light->setPosition(light->getPosition() - (glm::vec3(0, 0, 1)* movementSpeed * ftime));
@@ -551,7 +605,7 @@ int main() {
 #endif
 
 		SDL_GL_MakeCurrent(w2, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//ctv->setTexture(texManager["rsm_depth_tex"]);
 		//rsm_world_space_coords_tex
 		//rsm_normal_tex
 		//rsm_flux_tex
@@ -577,12 +631,12 @@ int main() {
 
 
 
-	Finalize();
+	//Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-	SDL_DestroyWindow(w2);
+	//SDL_DestroyWindow(w2);
 
 	SDL_Quit();
 
