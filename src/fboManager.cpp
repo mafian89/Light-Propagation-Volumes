@@ -48,8 +48,21 @@ void CFboManager::bindToFbo(GLenum type, GLenum texture, GLuint textureId) {
 	//glBindFramebuffer(GL_FRAMEBUFFER,0);
 }
 
-void CFboManager::bindLayeredTextureToFbo(GLenum type, GLenum texture, GLuint textureId, GLint layer) {
-
+void CFboManager::bind3DTextureToFbo(GLenum type, GLuint textureId) {
+	glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+	//glFramebufferTexture(GL_FRAMEBUFFER, type, textureId, 0);
+	glFramebufferTexture3D(GL_FRAMEBUFFER, type, GL_TEXTURE_3D, textureId, 0, 0);
+	if (type != GL_DEPTH_ATTACHMENT) {
+		mrt[attachmentCount] = type;
+		attachmentCount += 1;
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+	}
+	/*static const GLenum draw_buffers[] =
+	{
+	GL_COLOR_ATTACHMENT0
+	};
+	glDrawBuffers(1, draw_buffers);*/
 }
 
 GLuint CFboManager::getFboId() {

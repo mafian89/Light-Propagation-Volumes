@@ -121,5 +121,14 @@
     <None Include="..\shaders\depthOnly.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\lightInject.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

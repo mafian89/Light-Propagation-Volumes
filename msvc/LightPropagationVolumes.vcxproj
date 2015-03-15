@@ -44,6 +44,9 @@
     <None Include="..\shaders\debugDraw.vs" />
     <None Include="..\shaders\depthOnly.frag" />
     <None Include="..\shaders\depthOnly.vs" />
+    <None Include="..\shaders\lightInject.frag" />
+    <None Include="..\shaders\lightInject.gs" />
+    <None Include="..\shaders\lightInject.vs" />
     <None Include="..\shaders\RSMpass.frag" />
     <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />
