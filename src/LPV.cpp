@@ -55,7 +55,7 @@ glm::mat4 biasMatrix(
 
 #ifndef NOTEST
 GLuint emptyVAO, tmpVBO;
-#define TEST_NUM_POINT 1
+#define TEST_NUM_POINT 10
 #endif
 
 
@@ -409,6 +409,10 @@ void Display() {
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+	//Additive
+	glBlendEquation(GL_FUNC_ADD);
 	injectLight.Use();
 	//glUniform1i(injectLight("LPVGridR"), 0);
 	//glUniform1i(injectLight("LPVGridG"), 1);
@@ -420,6 +424,7 @@ void Display() {
 	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
 	glBindVertexArray(0);//deaktivujeme VAO
 	injectLight.UnUse();
+	glDisable(GL_BLEND);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	
