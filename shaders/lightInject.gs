@@ -16,7 +16,7 @@ void main(){
 
 		gl_Position=gl_in[0].gl_Position;
 		color = vec4(0.0,1.0,0.0,1.0);
-		//gl_Layer = 1;
+		gl_Layer = 1;
 		EmitVertex();
 		EndPrimitive();
 

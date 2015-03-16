@@ -38,7 +38,7 @@ CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
-//CFboManager * testInject = new CFboManager();
+CFboManager * testInject = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
 GLuint depthPassFBO;
@@ -55,7 +55,7 @@ glm::mat4 biasMatrix(
 
 #ifndef NOTEST
 GLuint emptyVAO, tmpVBO;
-#define TEST_NUM_POINT 5
+#define TEST_NUM_POINT 1
 #endif
 
 
@@ -111,7 +111,7 @@ void Initialize(SDL_Window * w) {
 	shadowMap.CreateAndLinkProgram();
 
 	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
-	//injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
+	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
 
@@ -227,6 +227,7 @@ void Initialize(SDL_Window * w) {
 	texManager.createRGBA16F3DTexture("LPVGridG", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridB", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
@@ -262,14 +263,14 @@ void Initialize(SDL_Window * w) {
 		return;
 	}
 
-	//testInject->initFbo();
+	testInject->initFbo();
 	//testInject->genRenderDepthBuffer(WIDTH, HEIGHT);
 	//testInject->bindRenderDepthBuffer();
-	//testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["test3D"]);
-	//testInject->setDrawBuffers();
-	//if (!testInject->checkFboStatus()) {
-	//	return;
-	//}
+	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["test3D"]);
+	testInject->setDrawBuffers();
+	if (!testInject->checkFboStatus()) {
+		return;
+	}
 
 	//glGenFramebuffers(1, &depthPassFBO);
 	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
@@ -336,7 +337,7 @@ void Display() {
 
 	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
 	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
-
+	
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
 	glEnable(GL_POLYGON_OFFSET_FILL);
@@ -399,29 +400,33 @@ void Display() {
 	//glClampColorARB(GL_CLAMP_VERTEX_COLOR, GL_TRUE);
 	//glClampColorARB(GL_CLAMP_FRAGMENT_COLOR, GL_TRUE);
 
-
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-
-	glViewport(0, 0, WIDTH, HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
+	//glViewport(0, 0, WIDTH, HEIGHT);
+	glViewport(0, 0, 5, 5); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	injectLight.Use();
-	glUniform1i(injectLight("LPVGridR"), 0);
-	glUniform1i(injectLight("LPVGridG"), 1);
-	glUniform1i(injectLight("LPVGridB"), 2);
-	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glUniform1i(injectLight("LPVGridR"), 0);
+	//glUniform1i(injectLight("LPVGridG"), 1);
+	//glUniform1i(injectLight("LPVGridB"), 2);
+	//glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindVertexArray(emptyVAO);//aktivujeme VAO
 	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
 	glBindVertexArray(0);//deaktivujeme VAO
 	injectLight.UnUse();
-
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	
 	//Draw quad on screen
+	glViewport(0, 0, WIDTH, HEIGHT);
 	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.6, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();

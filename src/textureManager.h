@@ -14,6 +14,7 @@ public:
 	void createTexture(const string& texture, const string filePath, unsigned w, unsigned h, GLuint filter, GLuint type, GLuint type_2, bool depth);
 	void createRGBA16F3DTexture(const string& texture, unsigned w, unsigned h, unsigned d, GLuint filter, GLuint wrap);
 	void createRGBA3DTexture(const string& texture, unsigned w, unsigned h, unsigned d, GLuint filter, GLuint wrap);
+	void clear3Dtexture(GLuint texture, unsigned w, unsigned h, unsigned d);
 private:
 	map<string,GLuint> textures;
 };
