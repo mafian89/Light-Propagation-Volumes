@@ -37,3 +37,5 @@
 #define RSMSIZE 512
 #define TEXTUREDIR "../textures/"
 #define MAX_GRID_SIZE 64
+#define ORTHO_PROJECTION
+//#define LAYERED_FILL

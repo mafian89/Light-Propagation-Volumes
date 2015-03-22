@@ -59,34 +59,30 @@ GLuint emptyVAO, tmpVBO;
 #endif
 
 
-
 void Initialize(SDL_Window * w) {
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
 	//std::cout << "Max color attachments: " << max_color_attachments << std::endl;
 	//tex = loadImage("../textures/texture.png");
-	/*
-	Light POSITION vector: (4.81105, 18.9061, 28.3497)
-	Light DIRECTION vector: (0.0023295, -0.439015, -0.898477)
-	Light horizotnal angle: 3.139
-	Light vertical angle: -0.454502
 
+
+#ifdef ORTHO_PROJECTION
+	/*
+	Light POSITION vector: (-7.07759, 56.7856, 10.0773)
+	Light DIRECTION vector: (0.168037, -0.964752, -0.202527)
+	Light horizotnal angle: 2.449
+	Light vertical angle: -1.3045
+	*/
+	light = new CLightObject(glm::vec3(-7.07759, 56.7856, 10.0773), glm::vec3(0.168037, -0.964752, -0.202527));
+	light->setHorAngle(2.449);
+	light->setVerAngle(-1.3045);
+#else
+	/*
 	Light POSITION vector: (7.00241, 48.0456, 10.0773)
 	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
 	Light horizotnal angle: 3.139
 	Light vertical angle: -0.9745
-
-	Light POSITION vector: (17.34, 2.04, 0)
-	Light DIRECTION vector: (-0.972737, 0.198669, -0.119638)
-	Light horizotnal angle: 4.59001
-	Light vertical angle: 0.2
 	*/
-
-#ifdef DEBUGLIGHT
-	light = new CLightObject(glm::vec3(17.34, 2.04, 0), glm::vec3(-0.972737, 0.198669, -0.119638));
-	light->setHorAngle(4.59001);
-	light->setVerAngle(0.2);
-#else
 	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-0.9745);
@@ -109,11 +105,17 @@ void Initialize(SDL_Window * w) {
 	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
 	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
 	shadowMap.CreateAndLinkProgram();
-
+#ifdef LAYERED_FILL
+	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
+	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
+	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject_layered.frag").c_str());
+	injectLight.CreateAndLinkProgram();
+#else
 	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
-	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
+	//injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
+#endif
 
 	////////////////////////////////////////////////////
 	// CAMERA INIT
@@ -150,12 +152,19 @@ void Initialize(SDL_Window * w) {
 	shadowMap.Use();
 	shadowMap.AddUniform("mvp");
 	shadowMap.UnUse();
-
+#ifndef LAYERED_FILL
 	injectLight.Use();
 	injectLight.AddUniform("LPVGridR");
 	injectLight.AddUniform("LPVGridG");
 	injectLight.AddUniform("LPVGridB");
+	injectLight.AddUniform("m_inverseLightProjection");
+	injectLight.AddUniform("i_gridW");
+	injectLight.AddUniform("i_gridH");
+	injectLight.AddUniform("i_gridD");
+	injectLight.AddUniform("f_cellSize");
+	injectLight.AddUniform("v_min");
 	injectLight.UnUse();
+#endif
 
 	////////////////////////////////////////////////////
 	// TEST STUFF
@@ -227,7 +236,9 @@ void Initialize(SDL_Window * w) {
 	texManager.createRGBA16F3DTexture("LPVGridG", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridB", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#ifdef LAYERED_FILL
 	texManager.createRGBA16F3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#endif
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
@@ -262,7 +273,7 @@ void Initialize(SDL_Window * w) {
 	if (!ShadowMapManager->checkFboStatus()) {
 		return;
 	}
-
+#ifdef LAYERED_FILL
 	testInject->initFbo();
 	//testInject->genRenderDepthBuffer(WIDTH, HEIGHT);
 	//testInject->bindRenderDepthBuffer();
@@ -271,7 +282,7 @@ void Initialize(SDL_Window * w) {
 	if (!testInject->checkFboStatus()) {
 		return;
 	}
-
+#endif
 	//glGenFramebuffers(1, &depthPassFBO);
 	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
 
@@ -403,6 +414,7 @@ void Display() {
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+#ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
 	glViewport(0, 0, 5, 5); //!! Set vieport to width and height of 3D texture!!
@@ -414,19 +426,41 @@ void Display() {
 	//Additive
 	glBlendEquation(GL_FUNC_ADD);
 	injectLight.Use();
-	//glUniform1i(injectLight("LPVGridR"), 0);
-	//glUniform1i(injectLight("LPVGridG"), 1);
-	//glUniform1i(injectLight("LPVGridB"), 2);
-	//glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	//glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	//glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindVertexArray(emptyVAO);//aktivujeme VAO
 	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
 	glBindVertexArray(0);//deaktivujeme VAO
 	injectLight.UnUse();
 	glDisable(GL_BLEND);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
+#else
+
+	//glViewport(0, 0, WIDTH, HEIGHT);
+	glViewport(0, 0, 5, 5); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	texManager.clear3Dtexture(texManager["LPVGridR"], 5, 5, 5);
+	texManager.clear3Dtexture(texManager["LPVGridG"], 5, 5, 5);
+	texManager.clear3Dtexture(texManager["LPVGridB"], 5, 5, 5);
+	injectLight.Use();
+	glUniform1i(injectLight("LPVGridR"), 0);
+	glUniform1i(injectLight("LPVGridG"), 1);
+	glUniform1i(injectLight("LPVGridB"), 2);
+	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindVertexArray(emptyVAO);//aktivujeme VAO
+	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
+	glBindVertexArray(0);//deaktivujeme VAO
+	injectLight.UnUse();
+
+	//float data[5 * 5 * 5 * 4];
+	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
+	//glBindTexture(GL_TEXTURE_3D, texManager["LPVGridR"]);
+	//glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
+	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
+
+#endif
 	
 	//Draw quad on screen
 	glViewport(0, 0, WIDTH, HEIGHT);

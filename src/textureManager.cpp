@@ -77,7 +77,7 @@ void CTextureManager::clear3Dtexture(GLuint texture, unsigned w, unsigned h, uns
 	std::vector<GLfloat> emptyData(w * h * d * sizeof(float), 0.0);
 	glBindTexture(GL_TEXTURE_3D, texture);
 	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, w, h, d, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
-	//glBindTexture(GL_TEXTURE_3D, 0);
+	glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 void CTextureManager::createRGBA3DTexture(const string& texture, unsigned w, unsigned h, unsigned d, GLuint filter, GLuint wrap) {

@@ -130,5 +130,14 @@
     <None Include="..\shaders\lightInject.gs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\lightInject_layered.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject_layered.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject_layered.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
