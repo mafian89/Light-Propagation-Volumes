@@ -28,6 +28,10 @@ std::vector<glm::vec3> CBoundingBox::getDebugDrawPoints() {
 	return this->debugDrawPoints;
 }
 
+float CBoundingBox::getCellSize() {
+	return this->cellSize;
+}
+
 void CBoundingBox::calculatePointDimensions() {
 	//std::cout << max.x - min.x << ", " << max.y - min.y << ", " << max.z - min.z << std::endl;
 

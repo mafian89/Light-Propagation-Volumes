@@ -7,29 +7,20 @@
 layout(rgba16f ,location = 0) uniform image3D LPVGridR;
 layout(rgba16f ,location = 1) uniform image3D LPVGridG;
 layout(rgba16f ,location = 2) uniform image3D LPVGridB;
-layout(early_fragment_tests )in;//zapneme early fragment testy
+layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform mat4 m_inverseLightView;
 uniform vec3 v_gridDim;
 uniform float f_cellSize;
-uniform vec3 v_min;
+uniform vec3 v_min; //min corner of the volume
 
-
-/*
-vec3 max = vec3(27.0283,21.4704,16.5955);
-vec3 min = vec3(-28.7844,-1.86771,-17.7279);
-vec3 volSize = max - min;
-float cellSize = 0.872074;*/
+flat in ivec3 v_volumeCellIndex;
 
 void main()
 {
-	/*int x = int((gl_FragCoord.x - min.x) / cellSize);
-	int y = int((gl_FragCoord.y - min.y) / cellSize);
-	int z = int((gl_FragCoord.z - min.z) / cellSize);
+	//	output.cellIndex = float4( int3( (posWorld - lpv_minCorner) / lpv_cellSize + 0.5 * normalWorld ), 1.0 );
 
-	//imageAtomicAdd(LPVGridR,ivec3(x,y,z),1);*/
-
-	imageAtomicAdd(LPVGridR,ivec3(0,0,0),f16vec4(1.0,0.0,0.0,1.0));
-	imageAtomicAdd(LPVGridG,ivec3(0,0,0),f16vec4(0.0,1.0,0.0,1.0));
-	imageAtomicAdd(LPVGridB,ivec3(0,0,0),f16vec4(0.0,0.0,1.0,1.0));
+	imageAtomicAdd(LPVGridR,v_volumeCellIndex,f16vec4(1.0,0.0,0.0,1.0));
+	imageAtomicAdd(LPVGridG,v_volumeCellIndex,f16vec4(0.0,1.0,0.0,1.0));
+	imageAtomicAdd(LPVGridB,v_volumeCellIndex,f16vec4(0.0,0.0,1.0,1.0));
 }

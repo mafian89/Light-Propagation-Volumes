@@ -41,9 +41,10 @@ CFboManager * ShadowMapManager = new CFboManager();
 CFboManager * testInject = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
-GLuint depthPassFBO;
+//GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
-glm::vec3 volumeDimensions;
+glm::vec3 volumeDimensions,vMin;
+float cellSize;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -163,6 +164,7 @@ void Initialize(SDL_Window * w) {
 	injectLight.AddUniform("v_gridDim");
 	injectLight.AddUniform("f_cellSize");
 	injectLight.AddUniform("v_min");
+	injectLight.AddUniform("i_RSMsize");
 	injectLight.UnUse();
 #endif
 
@@ -213,11 +215,13 @@ void Initialize(SDL_Window * w) {
 #endif
 
 	////////////////////////////////////////////////////
-	// LOAD MODELS
+	// LOAD MODELS & GET VOLUME DIMENSIONS
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
 	volumeDimensions = mesh->getBoundingBox()->getDimensions();
+	cellSize = mesh->getBoundingBox()->getCellSize();
+	vMin = mesh->getBoundingBox()->getMin();
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -405,22 +409,15 @@ void Display() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 
-
-	//glClampColorARB(GL_CLAMP_VERTEX_COLOR, GL_FALSE);
-	//glClampColorARB(GL_CLAMP_FRAGMENT_COLOR, GL_FALSE);
-	//glBindImageTexture(1, testImageTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	dd->setVPMatrix(mvp);
 	dd->draw();
-	//glClampColorARB(GL_CLAMP_VERTEX_COLOR, GL_TRUE);
-	//glClampColorARB(GL_CLAMP_FRAGMENT_COLOR, GL_TRUE);
 
-	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 #ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
-	glViewport(0, 0, 5, 5); //!! Set vieport to width and height of 3D texture!!
+	glViewport(0, 0,volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -449,8 +446,11 @@ void Display() {
 	glUniform1i(injectLight("LPVGridR"), 0);
 	glUniform1i(injectLight("LPVGridG"), 1);
 	glUniform1i(injectLight("LPVGridB"), 2);
-	glUniformMatrix4fv(injectLight("m_inverseLightView"), 1, GL_FALSE, glm::value_ptr(inverse_vLight));
+	glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
+	glUniform1f(injectLight("f_cellSize"), cellSize);
 	glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
+	glUniformMatrix4fv(injectLight("m_inverseLightView"), 1, GL_FALSE, glm::value_ptr(inverse_vLight));
 	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
@@ -505,6 +505,9 @@ void Reshape(int width, int height){
 }
 
 int main() {
+	//for (int i = 0; i < 25; i++) {
+	//	std::cout << i << ":\t" << i % 5 << ", " << i / 5 << std::endl;
+	//}
 
 	//ilutRenderer(ILUT_OPENGL);
 	ilInit();

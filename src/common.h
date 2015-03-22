@@ -33,7 +33,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define SHADOWMAPSIZE 2048
-#define RSMSIZE 512
+#define RSMSIZE 256
 #define TEXTUREDIR "../textures/"
 #define MAX_GRID_SIZE 64
 //#define ORTHO_PROJECTION

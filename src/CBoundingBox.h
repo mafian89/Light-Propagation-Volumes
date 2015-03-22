@@ -23,6 +23,7 @@ public:
 	glm::vec3 getMin();
 	std::vector<glm::vec3> getPoints();
 	std::vector<glm::vec3> getDebugDrawPoints();
+	float getCellSize();
 	int getW();
 	int getH();
 	int getD();
