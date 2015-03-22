@@ -65,6 +65,7 @@ void initializeVPLsInvocations() {
 	////////////////////////////////////////////////////
 	// VPL INIT STUFF
 	////////////////////////////////////////////////////
+	std::cout << "FUCK" << std::endl;
 	injectLight.Use();
 	//Generate VAO
 	glGenVertexArrays(1, &VPLsVAO);
@@ -77,9 +78,7 @@ void initializeVPLsInvocations() {
 	//Bind VBO
 	glBindBuffer(GL_ARRAY_BUFFER, VPLsVBO);
 
-
-
-	float testPoints[2 * VPL_COUNT];
+	float *testPoints = new float[2 * VPL_COUNT];
 	float step = 1.0 / VPL_COUNT;
 	for (int i = 0; i < VPL_COUNT; ++i) {
 		testPoints[i * 2] = 0.0f;
@@ -98,8 +97,11 @@ void initializeVPLsInvocations() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(0);
-
+	
 	injectLight.UnUse();
+
+	//Free memory
+	delete testPoints;
 }
 
 void Initialize(SDL_Window * w) {
@@ -159,7 +161,7 @@ void Initialize(SDL_Window * w) {
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
 #endif
-#ifdef VPLDEBUG
+#ifdef VPL_DEBUG
 	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
 	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
 	VPLsDebug.CreateAndLinkProgram();
@@ -215,7 +217,7 @@ void Initialize(SDL_Window * w) {
 	injectLight.UnUse();
 #endif
 
-#ifdef VPLDEBUG
+#ifdef VPL_DEBUG
 	VPLsDebug.Use();
 	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
 	VPLsDebug.AddUniform("mvp");
@@ -408,7 +410,7 @@ void Display() {
 	dd->setVPMatrix(mvp);
 	dd->draw();
 
-#ifdef VPLDEBUG
+#ifdef VPL_DEBUG
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glPointSize(5.0f);
 	VPLsDebug.Use();
