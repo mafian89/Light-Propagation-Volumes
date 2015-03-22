@@ -28,7 +28,7 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, depthShader, shadowMap, injectLight;
+GLSLShader basicShader, depthShader, shadowMap, injectLight, VPLsDebug;
 Mesh * mesh;
 float movementSpeed = 10.0f;
 float ftime;
@@ -55,12 +55,52 @@ glm::mat4 biasMatrix(
 
 //#define CTV
 
-#ifndef NOTEST
-GLuint emptyVAO, tmpVBO;
-#define TEST_NUM_POINT 10
-#endif
+
+GLuint VPLsVAO, VPLsVBO;
+
 
 //#define W2
+
+void initializeVPLsInvocations() {
+	////////////////////////////////////////////////////
+	// VPL INIT STUFF
+	////////////////////////////////////////////////////
+	injectLight.Use();
+	//Generate VAO
+	glGenVertexArrays(1, &VPLsVAO);
+
+	//Bind VAO
+	glBindVertexArray(VPLsVAO);
+
+	//Generate VBO
+	glGenBuffers(1, &VPLsVBO);
+	//Bind VBO
+	glBindBuffer(GL_ARRAY_BUFFER, VPLsVBO);
+
+
+
+	float testPoints[2 * VPL_COUNT];
+	float step = 1.0 / VPL_COUNT;
+	for (int i = 0; i < VPL_COUNT; ++i) {
+		testPoints[i * 2] = 0.0f;
+		testPoints[i * 2 + 1] = 0.0f;
+	}
+
+	//Alocate buffer
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testPoints), testPoints, GL_STATIC_DRAW);
+	//Fill VBO
+	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testPoints), testPoints);
+
+	//Fill attributes and uniforms
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
+
+	injectLight.UnUse();
+}
 
 void Initialize(SDL_Window * w) {
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
@@ -119,6 +159,11 @@ void Initialize(SDL_Window * w) {
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
 #endif
+#ifdef VPLDEBUG
+	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
+	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
+	VPLsDebug.CreateAndLinkProgram();
+#endif
 
 	////////////////////////////////////////////////////
 	// CAMERA INIT
@@ -160,59 +205,24 @@ void Initialize(SDL_Window * w) {
 	injectLight.AddUniform("LPVGridR");
 	injectLight.AddUniform("LPVGridG");
 	injectLight.AddUniform("LPVGridB");
-	injectLight.AddUniform("m_inverseLightView");
 	injectLight.AddUniform("v_gridDim");
 	injectLight.AddUniform("f_cellSize");
 	injectLight.AddUniform("v_min");
 	injectLight.AddUniform("i_RSMsize");
+	injectLight.AddUniform("rsm_world_space_coords_tex");
+	injectLight.AddUniform("rsm_normal_tex");
+	injectLight.AddUniform("rsm_flux_tex");
 	injectLight.UnUse();
 #endif
 
-	////////////////////////////////////////////////////
-	// TEST STUFF
-	////////////////////////////////////////////////////
-#ifndef NOTEST
-	injectLight.Use();
-	//Generate VAO
-	glGenVertexArrays(1, &emptyVAO);
-	
-	//Bind VAO
-	glBindVertexArray(emptyVAO);
-
-	//Generate VBO
-	glGenBuffers(1, &tmpVBO);
-	//Bind VBO
-	glBindBuffer(GL_ARRAY_BUFFER, tmpVBO);
-
-
-
-	float testPoints[2*TEST_NUM_POINT];
-	float step = 1.0 / TEST_NUM_POINT;
-	for (int i = 0; i < TEST_NUM_POINT; ++i) {
-		//testPoints[i * 2] = -0.5f + i*step;
-		//testPoints[i * 2 + 1] = 0.0f;
-		testPoints[i * 2] = 0.0f;
-		testPoints[i * 2 + 1] = 0.0f;
-	}
-
-	//std::cout << sizeof(testPoints) << std::endl;
-	//std::cout << 2 * TEST_NUM_POINT * sizeof(float) << std::endl;
-
-	//Alocate buffer
-	glBufferData(GL_ARRAY_BUFFER, sizeof(testPoints), testPoints, GL_STATIC_DRAW);
-	//Fill VBO
-	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testPoints), testPoints);
-
-	//Fill attributes and uniforms
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (void*)0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	
-	glBindVertexArray(0);
-	
-	injectLight.UnUse();
+#ifdef VPLDEBUG
+	VPLsDebug.Use();
+	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("mvp");
+	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.UnUse();
 #endif
+
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS & GET VOLUME DIMENSIONS
@@ -222,6 +232,7 @@ void Initialize(SDL_Window * w) {
 	volumeDimensions = mesh->getBoundingBox()->getDimensions();
 	cellSize = mesh->getBoundingBox()->getCellSize();
 	vMin = mesh->getBoundingBox()->getMin();
+	initializeVPLsInvocations();
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -288,21 +299,6 @@ void Initialize(SDL_Window * w) {
 		return;
 	}
 #endif
-	//glGenFramebuffers(1, &depthPassFBO);
-	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
-
-	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
-	//glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
-
-	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["rsm_depth_tex"], 0);
-
-	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
-
-	//// Always check that our framebuffer is ok
-	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	//	return;
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -412,6 +408,22 @@ void Display() {
 	dd->setVPMatrix(mvp);
 	dd->draw();
 
+#ifdef VPLDEBUG
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	glPointSize(5.0f);
+	VPLsDebug.Use();
+	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
+	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	VPLsDebug.UnUse();
+	glDisable(GL_PROGRAM_POINT_SIZE);
+#endif
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 #ifdef LAYERED_FILL
@@ -427,7 +439,7 @@ void Display() {
 	glBlendEquation(GL_FUNC_ADD);
 	injectLight.Use();
 	glBindVertexArray(emptyVAO);//aktivujeme VAO
-	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
 	glBindVertexArray(0);//deaktivujeme VAO
 	injectLight.UnUse();
 	glDisable(GL_BLEND);
@@ -446,17 +458,25 @@ void Display() {
 	glUniform1i(injectLight("LPVGridR"), 0);
 	glUniform1i(injectLight("LPVGridG"), 1);
 	glUniform1i(injectLight("LPVGridB"), 2);
+	glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
+	glUniform1i(injectLight("rsm_normal_tex"), 1);
+	glUniform1i(injectLight("rsm_flux_tex"), 2);
 	glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
 	glUniform1f(injectLight("f_cellSize"), cellSize);
 	glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 	glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
-	glUniformMatrix4fv(injectLight("m_inverseLightView"), 1, GL_FALSE, glm::value_ptr(inverse_vLight));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
 	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindVertexArray(emptyVAO);//aktivujeme VAO
-	glDrawArrays(GL_POINTS, 0, TEST_NUM_POINT);
-	glBindVertexArray(0);//deaktivujeme VAO
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
 	injectLight.UnUse();
 
 	//float data[5 * 5 * 5 * 4];

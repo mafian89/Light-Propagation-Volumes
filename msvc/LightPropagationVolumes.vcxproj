@@ -41,6 +41,8 @@
     <None Include="..\shaders\basicShader.vs" />
     <None Include="..\shaders\debugDraw.frag" />
     <None Include="..\shaders\debugDraw.vs" />
+    <None Include="..\shaders\debugVPLs.frag" />
+    <None Include="..\shaders\debugVPLs.vs" />
     <None Include="..\shaders\depthOnly.frag" />
     <None Include="..\shaders\depthOnly.vs" />
     <None Include="..\shaders\lightInject.frag" />
