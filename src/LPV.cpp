@@ -43,6 +43,7 @@ CLightObject * light;
 DebugDrawer * dd;
 GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
+glm::vec3 volumeDimensions;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -58,6 +59,7 @@ GLuint emptyVAO, tmpVBO;
 #define TEST_NUM_POINT 10
 #endif
 
+//#define W2
 
 void Initialize(SDL_Window * w) {
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
@@ -78,12 +80,12 @@ void Initialize(SDL_Window * w) {
 	light->setVerAngle(-1.3045);
 #else
 	/*
-	Light POSITION vector: (7.00241, 48.0456, 10.0773)
+	Light POSITION vector: (-0.977592, 59.4256, 10.0773)
 	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
 	Light horizotnal angle: 3.139
 	Light vertical angle: -0.9745
 	*/
-	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
+	light = new CLightObject(glm::vec3(-0.977592, 59.4256, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-0.9745);
 #endif
@@ -157,10 +159,8 @@ void Initialize(SDL_Window * w) {
 	injectLight.AddUniform("LPVGridR");
 	injectLight.AddUniform("LPVGridG");
 	injectLight.AddUniform("LPVGridB");
-	injectLight.AddUniform("m_inverseLightProjection");
-	injectLight.AddUniform("i_gridW");
-	injectLight.AddUniform("i_gridH");
-	injectLight.AddUniform("i_gridD");
+	injectLight.AddUniform("m_inverseLightView");
+	injectLight.AddUniform("v_gridDim");
 	injectLight.AddUniform("f_cellSize");
 	injectLight.AddUniform("v_min");
 	injectLight.UnUse();
@@ -217,6 +217,7 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
+	volumeDimensions = mesh->getBoundingBox()->getDimensions();
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -232,12 +233,12 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
-	texManager.createRGBA16F3DTexture("LPVGridR", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("LPVGridG", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("LPVGridB", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("LPVGridB", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #ifdef LAYERED_FILL
-	texManager.createRGBA16F3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #endif
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
@@ -305,7 +306,7 @@ float rot = 0.0;
 float elevation = 0.0;
 float rotSpeed = 30.0f;
 float elevationSpeed = 1.0f;
-bool drawn = false;
+bool test = true;
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -347,7 +348,9 @@ void Display() {
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
 
 	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
+	glm::mat4 inverse_vLight = glm::inverse(light->getViewMatrix());
 	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
+
 	
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
@@ -435,17 +438,19 @@ void Display() {
 #else
 
 	//glViewport(0, 0, WIDTH, HEIGHT);
-	glViewport(0, 0, 5, 5); //!! Set vieport to width and height of 3D texture!!
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	texManager.clear3Dtexture(texManager["LPVGridR"], 5, 5, 5);
-	texManager.clear3Dtexture(texManager["LPVGridG"], 5, 5, 5);
-	texManager.clear3Dtexture(texManager["LPVGridB"], 5, 5, 5);
+	texManager.clear3Dtexture(texManager["LPVGridR"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["LPVGridG"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["LPVGridB"], volumeDimensions);
 	injectLight.Use();
 	glUniform1i(injectLight("LPVGridR"), 0);
 	glUniform1i(injectLight("LPVGridG"), 1);
 	glUniform1i(injectLight("LPVGridB"), 2);
+	glUniformMatrix4fv(injectLight("m_inverseLightView"), 1, GL_FALSE, glm::value_ptr(inverse_vLight));
+	glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
@@ -469,19 +474,6 @@ void Display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
-	
-
-	
-	//if (!drawn) {
-	//	unsigned int size = 64 *27 * 39*sizeof(float);
-	//	float *pixels = new float[size];
-	//	glGetTextureImage(testImageTexture, 0, GL_RED, GL_FLOAT, 4*sizeof(float), &pixels[0]);
-	//	drawn = true;
-	//	for (int i = 0; i < (64 * 27 * 39); i++) {
-	//		if (pixels[i] > 0.0)
-	//			std::cout << pixels[i];
-	//	}
-	//}
 }
 
 void DisplayTexture(CTextureViewer * ctv) {

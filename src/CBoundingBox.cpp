@@ -43,20 +43,20 @@ void CBoundingBox::calculatePointDimensions() {
 	depth = int(volSize.z / cellSize + 0.5f);
 
 	//glm::vec3 tmpPoint = glm::vec3(-29.656474, -2.739784, -18.599974) + glm::vec3(2.0)*glm::vec3(cellSize);
-	glm::vec3 tmpPoint = min;
-	for (int i = 0; i < 5; i++) {
-		std::cout << "tmpPoint: (" << tmpPoint.x << "," << tmpPoint.y << "," << tmpPoint.z << ")" << std::endl;
-		std::cout << int((tmpPoint.x - min.x) / cellSize) << std::endl;
-		std::cout << int((tmpPoint.y - min.y) / cellSize) << std::endl;
-		std::cout << int((tmpPoint.z - min.z) / cellSize) << std::endl;
-		std::cout << int((tmpPoint.x - min.x) / cellSize) + int(depth) * int((tmpPoint.x - min.x) / cellSize) << std::endl;
-		tmpPoint += glm::vec3(cellSize/2.0);
-	}
+	//glm::vec3 tmpPoint = min;
+	//for (int i = 0; i < 5; i++) {
+	//	std::cout << "tmpPoint: (" << tmpPoint.x << "," << tmpPoint.y << "," << tmpPoint.z << ")" << std::endl;
+	//	std::cout << int((tmpPoint.x - min.x) / cellSize) << std::endl;
+	//	std::cout << int((tmpPoint.y - min.y) / cellSize) << std::endl;
+	//	std::cout << int((tmpPoint.z - min.z) / cellSize) << std::endl;
+	//	std::cout << int((tmpPoint.x - min.x) / cellSize) + int(depth) * int((tmpPoint.x - min.x) / cellSize) << std::endl;
+	//	tmpPoint += glm::vec3(cellSize/2.0);
+	//}
 
 
-	std::cout << maxLength << " cellsize: " << cellSize << std::endl;
-	std::cout << "volSize: " << volSize.x << "x" << volSize.y << "x" << volSize.z << std::endl;
-	std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
+	//std::cout << maxLength << " cellsize: " << cellSize << std::endl;
+	//std::cout << "volSize: " << volSize.x << "x" << volSize.y << "x" << volSize.z << std::endl;
+	//std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
 
 	//width = int(std::ceilf(volSize.x / cellSize));
 	//height = int(std::ceilf(volSize.y / cellSize));
@@ -152,9 +152,9 @@ void CBoundingBox::calculatePointDimensions() {
 	debugDrawPoints.push_back(p8);
 }
 
-void CBoundingBox::draw() {
-	std::cout << "Draw called" << std::endl;
-}
+//void CBoundingBox::draw() {
+//	std::cout << "Draw called" << std::endl;
+//}
 
 int CBoundingBox::getW() {
 	return this->width;
@@ -165,4 +165,8 @@ int CBoundingBox::getH() {
 }
 int CBoundingBox::getD() {
 	return this->depth;
+}
+
+glm::vec3 CBoundingBox::getDimensions() {
+	return glm::vec3(width,height,depth);
 }

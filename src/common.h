@@ -20,7 +20,6 @@
 #include "CLightObject.h"
 #include "texUtils.h"
 #include "CBoundingBox.h"
-#include "IDrawable.h"
 #include "DebugDrawer.h"
 
 #include <assimp/scene.h>
@@ -37,5 +36,5 @@
 #define RSMSIZE 512
 #define TEXTUREDIR "../textures/"
 #define MAX_GRID_SIZE 64
-#define ORTHO_PROJECTION
+//#define ORTHO_PROJECTION
 //#define LAYERED_FILL

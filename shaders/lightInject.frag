@@ -9,10 +9,8 @@ layout(rgba16f ,location = 1) uniform image3D LPVGridG;
 layout(rgba16f ,location = 2) uniform image3D LPVGridB;
 layout(early_fragment_tests )in;//zapneme early fragment testy
 
-uniform mat4 m_inverseLightProjection;
-uniform int i_gridW;
-uniform int i_gridH;
-uniform int i_gridD;
+uniform mat4 m_inverseLightView;
+uniform vec3 v_gridDim;
 uniform float f_cellSize;
 uniform vec3 v_min;
 

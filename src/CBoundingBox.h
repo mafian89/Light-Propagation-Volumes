@@ -5,7 +5,7 @@
 
 class IDrawable;
 
-class CBoundingBox : public IDrawable {
+class CBoundingBox  {
 private:
 	std::vector<glm::vec3> points;
 	std::vector<glm::vec3> debugDrawPoints;
@@ -26,7 +26,8 @@ public:
 	int getW();
 	int getH();
 	int getD();
-	virtual void draw();
+	glm::vec3 getDimensions();
+	//virtual void draw();
 };
 
 #endif

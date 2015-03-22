@@ -32,7 +32,6 @@
     <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
-    <ClInclude Include="..\src\IDrawable.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
     <ClInclude Include="..\src\texUtils.h" />
