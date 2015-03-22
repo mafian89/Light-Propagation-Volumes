@@ -32,7 +32,6 @@ GLSLShader basicShader, depthShader, shadowMap, injectLight, VPLsDebug;
 Mesh * mesh;
 float movementSpeed = 10.0f;
 float ftime;
-GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
@@ -43,6 +42,7 @@ CLightObject * light;
 DebugDrawer * dd;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
+GLuint VPLsVAO, VPLsVBO;
 glm::vec3 volumeDimensions,vMin;
 float cellSize;
 
@@ -54,18 +54,12 @@ glm::mat4 biasMatrix(
 	);
 
 //#define CTV
-
-
-GLuint VPLsVAO, VPLsVBO;
-
-
 //#define W2
 
 void initializeVPLsInvocations() {
 	////////////////////////////////////////////////////
 	// VPL INIT STUFF
 	////////////////////////////////////////////////////
-	std::cout << "FUCK" << std::endl;
 	injectLight.Use();
 	//Generate VAO
 	glGenVertexArrays(1, &VPLsVAO);
@@ -313,7 +307,7 @@ void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	//Clear color
-	glClearColor(0.0, 0.0, 0.6, 1.0);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	//View port
@@ -390,8 +384,8 @@ void Display() {
 	//glCullFace(GL_BACK);
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
-	basicShader.Use();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	basicShader.Use();
 	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
@@ -412,7 +406,7 @@ void Display() {
 
 #ifdef VPL_DEBUG
 	glEnable(GL_PROGRAM_POINT_SIZE);
-	glPointSize(5.0f);
+	glPointSize(2.5f);
 	VPLsDebug.Use();
 	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
@@ -492,7 +486,7 @@ void Display() {
 	//Draw quad on screen
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glDisable(GL_DEPTH_TEST);
-	glClearColor(0.0, 0.0, 0.6, 1.0);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
@@ -505,7 +499,7 @@ void DisplayTexture(CTextureViewer * ctv) {
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	ctv->draw();
 }
