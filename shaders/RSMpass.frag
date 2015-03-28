@@ -1,24 +1,27 @@
 #version 430
 
 in vec4 pos;
-in vec3 eyeNormal;
+in vec3 worldNormal;
 in vec2 uv;
+//in vec3 viewNormal;
 
 uniform sampler2D matTex;
+uniform vec3 v_lightPos;
 
 layout(location=0) out vec4 worldPos;
 layout(location=1) out vec4 normal;
 layout(location=2) out vec4 flux;
-//layout(location=3) out float fragmentdepth;
 
 void main() {
-	float uniformFlux = 1.0f;
-	float matRefl = 0.01;
-	float resFlux = uniformFlux*matRefl;
+
+	//TODO: Pass this as uniform
+	vec3 lightColor = vec3(1.0,1.0,1.0);
 	vec3 diffuse = texture(matTex,uv).rgb;
+    vec3 lightDir = normalize( v_lightPos - pos.xyz );
 
 	worldPos = pos;
-	normal = vec4(eyeNormal,1.0);
-	flux = vec4(diffuse,resFlux);
-	//fragmentdepth = gl_FragCoord.z;
+	normal = vec4(worldNormal,1.0);
+
+	flux = vec4(lightColor * diffuse * clamp( dot( lightDir, worldNormal ),0.0,1.0 ), 1.0);
+
 }

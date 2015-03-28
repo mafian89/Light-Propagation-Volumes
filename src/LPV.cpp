@@ -28,7 +28,7 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, depthShader, shadowMap, injectLight, VPLsDebug;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug;
 Mesh * mesh;
 float movementSpeed = 10.0f;
 float ftime;
@@ -137,9 +137,9 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
 
-	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
-	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
-	depthShader.CreateAndLinkProgram();
+	rsmShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
+	rsmShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
+	rsmShader.CreateAndLinkProgram();
 
 	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
 	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
@@ -187,11 +187,13 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
-	depthShader.Use();
-	depthShader.AddUniform("mvp");
-	depthShader.AddUniform("m");
-	depthShader.AddUniform("mn");
-	depthShader.UnUse();
+	rsmShader.Use();
+	rsmShader.AddUniform("mvp");
+	rsmShader.AddUniform("m");
+	rsmShader.AddUniform("mn");
+	rsmShader.AddUniform("mv");
+	rsmShader.AddUniform("v_lightPos");
+	rsmShader.UnUse();
 
 	shadowMap.Use();
 	shadowMap.AddUniform("mvp");
@@ -343,9 +345,13 @@ void Display() {
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
 
-	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
-	glm::mat4 inverse_vLight = glm::inverse(light->getViewMatrix());
-	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
+	glm::mat4 v_light = light->getViewMatrix();
+	glm::mat4 p_light = light->getProjMatrix();
+	glm::mat4 mvp_light = p_light * v_light * m;
+	glm::mat4 inverse_vLight = glm::inverse(v_light);
+	glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(v_light*m)));
+
+	glm::vec3 lightPosition = light->getPosition();
 
 	
 	//glEnable(GL_CULL_FACE);
@@ -366,15 +372,17 @@ void Display() {
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
-	depthShader.Use();
+	rsmShader.Use();
 	glViewport(0, 0, RSMSIZE, RSMSIZE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	light->computeMatrixes();
-	glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
-	glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m));
-	//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
+	glUniformMatrix4fv(rsmShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+	//glUniformMatrix4fv(rsmShader("mv"), 1, GL_FALSE, glm::value_ptr(v_light));
+	glUniformMatrix4fv(rsmShader("m"), 1, GL_FALSE, glm::value_ptr(m));
+	glUniform3f(rsmShader("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	//glUniformMatrix3fv(rsmShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
 	mesh->render();
-	depthShader.UnUse();
+	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
@@ -393,7 +401,6 @@ void Display() {
 	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
 	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
 	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
-	glm::vec3 lightPosition = light->getPosition();
 	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
