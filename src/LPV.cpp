@@ -28,7 +28,7 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject;
 Mesh * mesh;
 float movementSpeed = 10.0f;
 float ftime;
@@ -45,6 +45,9 @@ GLint texture_units, max_color_attachments;
 GLuint VPLsVAO, VPLsVBO;
 glm::vec3 volumeDimensions,vMin;
 float cellSize;
+float f_tanLightFovXHalf;
+float f_tanLightFovYHalf;
+float f_weightModifier = 20.0f; //Arbitrary value
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -155,6 +158,9 @@ void Initialize(SDL_Window * w) {
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
 #endif
+	geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
+	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
+	geometryInject.CreateAndLinkProgram();
 #ifdef VPL_DEBUG
 	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
 	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
@@ -213,6 +219,21 @@ void Initialize(SDL_Window * w) {
 	injectLight.UnUse();
 #endif
 
+	geometryInject.Use();
+	geometryInject.AddUniform("GeometryVolume");
+	geometryInject.AddUniform("v_gridDim");
+	geometryInject.AddUniform("f_cellSize");
+	geometryInject.AddUniform("v_min");
+	geometryInject.AddUniform("i_RSMsize");
+	geometryInject.AddUniform("rsm_world_space_coords_tex");
+	geometryInject.AddUniform("rsm_normal_tex");
+	geometryInject.AddUniform("rsm_flux_tex");
+	geometryInject.AddUniform("f_tanLightFovXHalf");
+	geometryInject.AddUniform("f_tanLightFovYHalf");
+	geometryInject.AddUniform("v_lightPos");
+	geometryInject.AddUniform("m_lightView");
+	geometryInject.UnUse();
+
 #ifdef VPL_DEBUG
 	VPLsDebug.Use();
 	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
@@ -223,7 +244,7 @@ void Initialize(SDL_Window * w) {
 
 
 	////////////////////////////////////////////////////
-	// LOAD MODELS & GET VOLUME DIMENSIONS
+	// LOAD MODELS & FILL THE VARIABLES
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
@@ -231,6 +252,11 @@ void Initialize(SDL_Window * w) {
 	cellSize = mesh->getBoundingBox()->getCellSize();
 	vMin = mesh->getBoundingBox()->getMin();
 	initializeVPLsInvocations();
+	float f_lightFov = light->getFov(); //in degrees, one must convert to radians
+	float f_lightAspect = light->getAspectRatio(); 
+
+	f_tanLightFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
+	f_tanLightFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -249,6 +275,7 @@ void Initialize(SDL_Window * w) {
 	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridB", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #ifdef LAYERED_FILL
 	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -353,7 +380,9 @@ void Display() {
 
 	glm::vec3 lightPosition = light->getPosition();
 
-	
+	////////////////////////////////////////////////////
+	// SHADOW MAP
+	////////////////////////////////////////////////////
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
 	glEnable(GL_POLYGON_OFFSET_FILL);
@@ -371,6 +400,9 @@ void Display() {
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
+	////////////////////////////////////////////////////
+	// RSM
+	////////////////////////////////////////////////////
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	rsmShader.Use();
 	glViewport(0, 0, RSMSIZE, RSMSIZE);
@@ -387,7 +419,9 @@ void Display() {
 
 
 
-
+	////////////////////////////////////////////////////
+	// RENDER SCENE TO TEXTURE
+	////////////////////////////////////////////////////
 	glDisable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
 	glViewport(0, 0, WIDTH, HEIGHT);
@@ -411,6 +445,9 @@ void Display() {
 	dd->setVPMatrix(mvp);
 	dd->draw();
 
+	////////////////////////////////////////////////////
+	// VPL DEBUG DRAW
+	////////////////////////////////////////////////////
 #ifdef VPL_DEBUG
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glPointSize(2.5f);
@@ -448,7 +485,9 @@ void Display() {
 	glDisable(GL_BLEND);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
-
+	////////////////////////////////////////////////////
+	// LIGHT INJECT
+	////////////////////////////////////////////////////
 	//glViewport(0, 0, WIDTH, HEIGHT);
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
@@ -482,6 +521,36 @@ void Display() {
 	glBindVertexArray(0);
 	injectLight.UnUse();
 
+	////////////////////////////////////////////////////
+	// GEOMETRY INJECT
+	////////////////////////////////////////////////////
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	texManager.clear3Dtexture(texManager["GeometryVolume"], volumeDimensions);
+	geometryInject.Use();
+	glUniform1i(geometryInject("GeometryVolume"), 0);
+	glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
+	glUniform1i(geometryInject("rsm_normal_tex"), 1);
+	glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
+	glUniform1f(geometryInject("f_cellSize"), cellSize);
+	glUniform1f(geometryInject("f_tanLightFovXHalf"), f_tanLightFovXHalf);
+	glUniform1f(geometryInject("f_tanLightFovYHalf"), f_tanLightFovYHalf);
+	glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
+	glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glBindImageTexture(0, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	geometryInject.UnUse();
+
 	//float data[5 * 5 * 5 * 4];
 	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
 	//glBindTexture(GL_TEXTURE_3D, texManager["LPVGridR"]);
@@ -490,6 +559,9 @@ void Display() {
 
 #endif
 	
+	////////////////////////////////////////////////////
+	// FINAL COMPOSITION
+	////////////////////////////////////////////////////
 	//Draw quad on screen
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glDisable(GL_DEPTH_TEST);

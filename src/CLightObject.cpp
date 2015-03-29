@@ -6,10 +6,11 @@ CLightObject::CLightObject() : position(glm::vec3(0.0, 0.0, 0.0)), direction(glm
 	//computeMatrixes();
 }
 
-CLightObject::CLightObject(glm::vec3 pos, glm::vec3 dir) : up(glm::vec3(0, 1, 0)), horizontalAngle(0.0f), verticalAngle(3.14f/4.0f)
+CLightObject::CLightObject(glm::vec3 pos, glm::vec3 dir) : up(glm::vec3(0, 1, 0)), horizontalAngle(0.0f), verticalAngle(3.14f / 4.0f), fov(90.0)
 {
 	this->position = pos;
 	this->direction = dir;
+	this->aspect = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
 	//computeMatrixes();
 }
 
@@ -20,9 +21,9 @@ CLightObject::~CLightObject()
 
 
 void CLightObject::computeMatrixes() {
-	float aspec = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
+	//float aspec = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
 #ifndef ORTHO_PROJECTION
-	this->ProjectionMatrix = glm::perspective<float>(90.0f, aspec, 0.1f, 1000.0f);
+	this->ProjectionMatrix = glm::perspective<float>(fov, aspect, 0.1f, 1000.0f);
 #else
 	this->ProjectionMatrix = glm::ortho<float>(-40,40,-40,40,-100,100);
 #endif
@@ -106,6 +107,13 @@ float CLightObject::getHorAngle() {
 
 float CLightObject::getVerAngle() {
 	return this->verticalAngle;
+}
+
+float CLightObject::getAspectRatio(){
+	return this->aspect;
+}
+float CLightObject::getFov() {
+	return this->fov;
 }
 
 void CLightObject::visualize() {

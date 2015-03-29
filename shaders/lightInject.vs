@@ -21,7 +21,6 @@ ivec3 convertPointToGridIndex(vec3 pos, vec3 normal) {
 
 void main()
 {
-//output.cellIndex = float4( int3( (posWorld - lpv_minCorner) / lpv_cellSize + 0.5 * normalWorld ), 1.0 );
 	ivec2 v_RSMCoords = ivec2(gl_VertexID % i_RSMsize, gl_VertexID / i_RSMsize);
 
 	v_posFromRSM = texelFetch(rsm_world_space_coords_tex, v_RSMCoords,0).rgb;

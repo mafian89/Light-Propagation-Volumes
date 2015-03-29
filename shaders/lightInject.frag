@@ -32,6 +32,7 @@ in vec4 v_fluxFromRSM;
 
 //Should I normalize the dir vector?
 vec4 evalCosineLobeToDir(vec3 dir) {
+	dir = normalize(dir);
 	//f00, f-11, f01, f11
 	return vec4( SH_cosLobe_C0, -SH_cosLobe_C1 * dir.y, SH_cosLobe_C1 * dir.z, -SH_cosLobe_C1 * dir.x );
 }

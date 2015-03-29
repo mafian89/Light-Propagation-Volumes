@@ -37,6 +37,7 @@
 #define TEXTUREDIR "../textures/"
 #define MAX_GRID_SIZE 64
 #define VPL_COUNT RSMSIZE*RSMSIZE
+#define DEG2RAD (M_PI / 180.0f)
 
 #define VPL_DEBUG
 //#define ORTHO_PROJECTION

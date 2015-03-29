@@ -142,5 +142,11 @@
     <None Include="..\shaders\debugVPLs.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\geometryInject.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\geometryInject.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
