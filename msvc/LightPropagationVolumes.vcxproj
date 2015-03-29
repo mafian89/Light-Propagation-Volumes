@@ -32,7 +32,6 @@
     <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
-    <ClInclude Include="..\src\IDrawable.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
     <ClInclude Include="..\src\texUtils.h" />
@@ -42,8 +41,18 @@
     <None Include="..\shaders\basicShader.vs" />
     <None Include="..\shaders\debugDraw.frag" />
     <None Include="..\shaders\debugDraw.vs" />
+    <None Include="..\shaders\debugVPLs.frag" />
+    <None Include="..\shaders\debugVPLs.vs" />
     <None Include="..\shaders\depthOnly.frag" />
     <None Include="..\shaders\depthOnly.vs" />
+    <None Include="..\shaders\geometryInject.frag" />
+    <None Include="..\shaders\geometryInject.vs" />
+    <None Include="..\shaders\lightInject.frag" />
+    <None Include="..\shaders\lightInject.gs" />
+    <None Include="..\shaders\lightInject.vs" />
+    <None Include="..\shaders\lightInject_layered.frag" />
+    <None Include="..\shaders\lightInject_layered.gs" />
+    <None Include="..\shaders\lightInject_layered.vs" />
     <None Include="..\shaders\RSMpass.frag" />
     <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />
@@ -57,7 +66,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v100</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -103,7 +112,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>

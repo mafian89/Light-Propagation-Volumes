@@ -83,9 +83,6 @@
     <ClInclude Include="..\src\CBoundingBox.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\IDrawable.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\DebugDrawer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -119,6 +116,36 @@
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="..\shaders\depthOnly.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject_layered.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject_layered.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\lightInject_layered.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\debugVPLs.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\debugVPLs.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\geometryInject.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\geometryInject.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

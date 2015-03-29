@@ -20,6 +20,8 @@ public:
 	glm::vec3 getRight();
 	float getHorAngle();
 	float getVerAngle();
+	float getAspectRatio();
+	float getFov();
 
 	void setPosition(glm::vec3);
 	void setDirection(glm::vec3);
@@ -32,7 +34,7 @@ private:
 	glm::vec3 up;
 	glm::vec3 right;
 	glm::mat4 ViewMatrix, ProjectionMatrix;
-	float verticalAngle, horizontalAngle;
+	float verticalAngle, horizontalAngle, aspect, fov;
 };
 
 #endif

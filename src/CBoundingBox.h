@@ -5,14 +5,15 @@
 
 class IDrawable;
 
-class CBoundingBox : public IDrawable {
+class CBoundingBox  {
 private:
 	std::vector<glm::vec3> points;
 	std::vector<glm::vec3> debugDrawPoints;
 	glm::vec3 min;
 	glm::vec3 max;
 	glm::vec3 volSize;
-	float width, height, depth, cellSize;
+	int width, height, depth;
+	float cellSize;
 	void calculatePointDimensions();
 public:
 	CBoundingBox();
@@ -22,7 +23,12 @@ public:
 	glm::vec3 getMin();
 	std::vector<glm::vec3> getPoints();
 	std::vector<glm::vec3> getDebugDrawPoints();
-	virtual void draw();
+	float getCellSize();
+	int getW();
+	int getH();
+	int getD();
+	glm::vec3 getDimensions();
+	//virtual void draw();
 };
 
 #endif

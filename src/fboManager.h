@@ -11,6 +11,7 @@ public:
 	void genRenderDepthBuffer(unsigned w, unsigned h);
 	void bindRenderDepthBuffer();
 	void bindToFbo(GLenum type, GLenum texture, GLuint textureId);
+	void bind3DTextureToFbo(GLenum type, GLuint textureId);
 	void initFbo();
 	void setDrawBuffers();
 	GLuint getFboId();

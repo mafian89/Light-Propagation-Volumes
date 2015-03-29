@@ -55,7 +55,42 @@ void CTextureManager::createTexture(const string& texture, const string filePath
 	//	glTexImage2D(GL_TEXTURE_2D, 0, mode, surface->w, surface->h, 0, mode, GL_UNSIGNED_BYTE, surface->pixels);
 	//	SDL_FreeSurface(surface);
 	//}
-	//glBindTexture(GL_TEXTURE_2D,NULL);
+	//glBindTexture(GL_TEXTURE_2D,0);
+}
+
+void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
+	GLuint tex;
+	add(texture);
+	glBindTexture(GL_TEXTURE_3D, textures[texture]);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
+	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, w, h, d, 0, GL_RGBA, GL_FLOAT, NULL);
+	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, w, h, d, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+	clear3Dtexture(textures[texture], dim);
+	//glBindTexture(GL_TEXTURE_3D, 0);
+}
+
+void CTextureManager::clear3Dtexture(GLuint texture, glm::vec3 dim) {
+	std::vector<GLfloat> emptyData(dim.x * dim.y * dim.z * sizeof(float), 0.0);
+	glBindTexture(GL_TEXTURE_3D, texture);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, dim.x , dim.y , dim.z, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+	glBindTexture(GL_TEXTURE_3D, 0);
+}
+
+void CTextureManager::createRGBA3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
+	GLuint tex;
+	add(texture);
+	glBindTexture(GL_TEXTURE_3D, textures[texture]);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, dim.x, dim.y, dim.z, 0, GL_RGBA, GL_FLOAT, NULL);
+	//glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 GLuint CTextureManager::operator[] (const string& texture) {

@@ -6,10 +6,11 @@ CLightObject::CLightObject() : position(glm::vec3(0.0, 0.0, 0.0)), direction(glm
 	//computeMatrixes();
 }
 
-CLightObject::CLightObject(glm::vec3 pos, glm::vec3 dir) : up(glm::vec3(0, 1, 0)), horizontalAngle(0.0f), verticalAngle(3.14f/4.0f)
+CLightObject::CLightObject(glm::vec3 pos, glm::vec3 dir) : up(glm::vec3(0, 1, 0)), horizontalAngle(0.0f), verticalAngle(3.14f / 4.0f), fov(90.0)
 {
 	this->position = pos;
 	this->direction = dir;
+	this->aspect = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
 	//computeMatrixes();
 }
 
@@ -20,12 +21,12 @@ CLightObject::~CLightObject()
 
 
 void CLightObject::computeMatrixes() {
-	float aspec = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
-	//It doesn't matter which of these two projection function you will choose
-	//They both do the same thing
-	this->ProjectionMatrix = glm::perspective<float>(90.0f, aspec, 0.1f, 1000.0f);
-	//this->ProjectionMatrix = glm::frustum(-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1000.0f);
-	//this->ProjectionMatrix = glm::ortho<float>(-10,10,-10,10,-10,20);
+	//float aspec = (float)(SHADOWMAPSIZE) / (float)(SHADOWMAPSIZE);
+#ifndef ORTHO_PROJECTION
+	this->ProjectionMatrix = glm::perspective<float>(fov, aspect, 0.1f, 1000.0f);
+#else
+	this->ProjectionMatrix = glm::ortho<float>(-40,40,-40,40,-100,100);
+#endif
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	//Viz http://www.lighthouse3d.com/wp-content/uploads/2011/04/vfpoints2.gif
@@ -106,6 +107,13 @@ float CLightObject::getHorAngle() {
 
 float CLightObject::getVerAngle() {
 	return this->verticalAngle;
+}
+
+float CLightObject::getAspectRatio(){
+	return this->aspect;
+}
+float CLightObject::getFov() {
+	return this->fov;
 }
 
 void CLightObject::visualize() {

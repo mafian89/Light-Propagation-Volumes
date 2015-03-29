@@ -6,9 +6,11 @@
 #pragma comment(lib, "SDL2.lib")
 #pragma comment(lib, "OpenGL32.lib")
 #pragma comment(lib, "glew32.lib")
+
 #pragma comment(lib,"devil.lib")
 #pragma comment(lib,"ILU.lib")
-#pragma comment(lib,"ILUT.lib")
+//#pragma comment(lib,"ILUT.lib")
+
 #pragma comment(lib,"assimp.lib")
 /// etc
 #endif
@@ -26,20 +28,26 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, depthShader, shadowMap;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject;
 Mesh * mesh;
 float movementSpeed = 10.0f;
 float ftime;
-GLuint tex;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
+CFboManager * testInject = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
-GLuint depthPassFBO;
-GLint texture_units;
+//GLuint depthPassFBO;
+GLint texture_units, max_color_attachments;
+GLuint VPLsVAO, VPLsVBO;
+glm::vec3 volumeDimensions,vMin;
+float cellSize;
+float f_tanLightFovXHalf;
+float f_tanLightFovYHalf;
+float f_weightModifier = 20.0f; //Arbitrary value
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -49,37 +57,75 @@ glm::mat4 biasMatrix(
 	);
 
 //#define CTV
+//#define W2
 
+void initializeVPLsInvocations() {
+	////////////////////////////////////////////////////
+	// VPL INIT STUFF
+	////////////////////////////////////////////////////
+	injectLight.Use();
+	//Generate VAO
+	glGenVertexArrays(1, &VPLsVAO);
 
+	//Bind VAO
+	glBindVertexArray(VPLsVAO);
 
+	//Generate VBO
+	glGenBuffers(1, &VPLsVBO);
+	//Bind VBO
+	glBindBuffer(GL_ARRAY_BUFFER, VPLsVBO);
+
+	float *testPoints = new float[2 * VPL_COUNT];
+	float step = 1.0 / VPL_COUNT;
+	for (int i = 0; i < VPL_COUNT; ++i) {
+		testPoints[i * 2] = 0.0f;
+		testPoints[i * 2 + 1] = 0.0f;
+	}
+
+	//Alocate buffer
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testPoints), testPoints, GL_STATIC_DRAW);
+	//Fill VBO
+	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testPoints), testPoints);
+
+	//Fill attributes and uniforms
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, (sizeof(float)* 2), (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
+	
+	injectLight.UnUse();
+
+	//Free memory
+	delete testPoints;
+}
 
 void Initialize(SDL_Window * w) {
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
-
+	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
+	//std::cout << "Max color attachments: " << max_color_attachments << std::endl;
 	//tex = loadImage("../textures/texture.png");
-	/*
-	Light POSITION vector: (4.81105, 18.9061, 28.3497)
-	Light DIRECTION vector: (0.0023295, -0.439015, -0.898477)
-	Light horizotnal angle: 3.139
-	Light vertical angle: -0.454502
 
-	Light POSITION vector: (7.00241, 48.0456, 10.0773)
+
+#ifdef ORTHO_PROJECTION
+	/*
+	Light POSITION vector: (-7.07759, 56.7856, 10.0773)
+	Light DIRECTION vector: (0.168037, -0.964752, -0.202527)
+	Light horizotnal angle: 2.449
+	Light vertical angle: -1.3045
+	*/
+	light = new CLightObject(glm::vec3(-7.07759, 56.7856, 10.0773), glm::vec3(0.168037, -0.964752, -0.202527));
+	light->setHorAngle(2.449);
+	light->setVerAngle(-1.3045);
+#else
+	/*
+	Light POSITION vector: (-0.977592, 59.4256, 10.0773)
 	Light DIRECTION vector: (0.00145602, -0.827421, -0.56158)
 	Light horizotnal angle: 3.139
 	Light vertical angle: -0.9745
-
-	Light POSITION vector: (17.34, 2.04, 0)
-	Light DIRECTION vector: (-0.972737, 0.198669, -0.119638)
-	Light horizotnal angle: 4.59001
-	Light vertical angle: 0.2
 	*/
-	
-#ifdef DEBUGLIGHT
-	light = new CLightObject(glm::vec3(17.34, 2.04, 0), glm::vec3(-0.972737, 0.198669, -0.119638));
-	light->setHorAngle(4.59001);
-	light->setVerAngle(0.2);
-#else
-	light = new CLightObject(glm::vec3(7.00241, 48.0456, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
+	light = new CLightObject(glm::vec3(-0.977592, 59.4256, 10.0773), glm::vec3(0.00145602, -0.827421, -0.56158));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-0.9745);
 #endif
@@ -94,25 +140,45 @@ void Initialize(SDL_Window * w) {
 	basicShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/basicShader.frag").c_str());
 	basicShader.CreateAndLinkProgram();
 
-	depthShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
-	depthShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
-	depthShader.CreateAndLinkProgram();
+	rsmShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/RSMpass.vs").c_str());
+	rsmShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/RSMpass.frag").c_str());
+	rsmShader.CreateAndLinkProgram();
 
 	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
 	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
 	shadowMap.CreateAndLinkProgram();
+#ifdef LAYERED_FILL
+	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
+	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
+	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject_layered.frag").c_str());
+	injectLight.CreateAndLinkProgram();
+#else
+	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
+	//injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
+	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
+	injectLight.CreateAndLinkProgram();
+#endif
+	geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
+	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
+	geometryInject.CreateAndLinkProgram();
+#ifdef VPL_DEBUG
+	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
+	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
+	VPLsDebug.CreateAndLinkProgram();
+#endif
+
 	////////////////////////////////////////////////////
 	// CAMERA INIT
 	////////////////////////////////////////////////////
 	/*
 	Camera POSITION vector: (11.7542, 14.1148, 0.822185)
-	Camera UP vector: (-0.436604, 0.873719, -0.214456)	
+	Camera UP vector: (-0.436604, 0.873719, -0.214456)
 	Camera RIGHT vector: (0.440876, 0, -0.897568)
 	Camera DIRECTION vector: (-0.783916, -0.486431, -0.385826)
 	Camera horizotnal angle: 4.25502
 	Camera vertical angle: -0.508
 	*/
-	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, 800, 600, 1.0, 1000.0);
+	controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -127,21 +193,70 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("depthTexture");
 	basicShader.UnUse();
 
-	depthShader.Use();
-	depthShader.AddUniform("mvp");
-	depthShader.AddUniform("m");
-	depthShader.AddUniform("mn");
-	depthShader.UnUse();
+	rsmShader.Use();
+	rsmShader.AddUniform("mvp");
+	rsmShader.AddUniform("m");
+	rsmShader.AddUniform("mn");
+	rsmShader.AddUniform("mv");
+	rsmShader.AddUniform("v_lightPos");
+	rsmShader.UnUse();
 
 	shadowMap.Use();
 	shadowMap.AddUniform("mvp");
 	shadowMap.UnUse();
+#ifndef LAYERED_FILL
+	injectLight.Use();
+	injectLight.AddUniform("LPVGridR");
+	injectLight.AddUniform("LPVGridG");
+	injectLight.AddUniform("LPVGridB");
+	injectLight.AddUniform("v_gridDim");
+	injectLight.AddUniform("f_cellSize");
+	injectLight.AddUniform("v_min");
+	injectLight.AddUniform("i_RSMsize");
+	injectLight.AddUniform("rsm_world_space_coords_tex");
+	injectLight.AddUniform("rsm_normal_tex");
+	injectLight.AddUniform("rsm_flux_tex");
+	injectLight.UnUse();
+#endif
+
+	geometryInject.Use();
+	geometryInject.AddUniform("GeometryVolume");
+	geometryInject.AddUniform("v_gridDim");
+	geometryInject.AddUniform("f_cellSize");
+	geometryInject.AddUniform("v_min");
+	geometryInject.AddUniform("i_RSMsize");
+	geometryInject.AddUniform("rsm_world_space_coords_tex");
+	geometryInject.AddUniform("rsm_normal_tex");
+	geometryInject.AddUniform("rsm_flux_tex");
+	geometryInject.AddUniform("f_tanLightFovXHalf");
+	geometryInject.AddUniform("f_tanLightFovYHalf");
+	geometryInject.AddUniform("v_lightPos");
+	geometryInject.AddUniform("m_lightView");
+	geometryInject.UnUse();
+
+#ifdef VPL_DEBUG
+	VPLsDebug.Use();
+	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("mvp");
+	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.UnUse();
+#endif
+
 
 	////////////////////////////////////////////////////
-	// LOAD MODELS
+	// LOAD MODELS & FILL THE VARIABLES
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
+	volumeDimensions = mesh->getBoundingBox()->getDimensions();
+	cellSize = mesh->getBoundingBox()->getCellSize();
+	vMin = mesh->getBoundingBox()->getMin();
+	initializeVPLsInvocations();
+	float f_lightFov = light->getFov(); //in degrees, one must convert to radians
+	float f_lightAspect = light->getAspectRatio(); 
+
+	f_tanLightFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
+	f_tanLightFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -157,6 +272,14 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("LPVGridB", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#ifdef LAYERED_FILL
+	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#endif
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
@@ -191,22 +314,16 @@ void Initialize(SDL_Window * w) {
 	if (!ShadowMapManager->checkFboStatus()) {
 		return;
 	}
-
-	//glGenFramebuffers(1, &depthPassFBO);
-	//glBindFramebuffer(GL_FRAMEBUFFER, depthPassFBO);
-
-	//// Depth texture. Slower than a depth buffer, but you can sample it later in your shader
-	//glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
-
-	//glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texManager["rsm_depth_tex"], 0);
-
-	//glDrawBuffer(GL_NONE); // No color buffer is drawn to.
-
-	//// Always check that our framebuffer is ok
-	//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	//	return;
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+#ifdef LAYERED_FILL
+	testInject->initFbo();
+	//testInject->genRenderDepthBuffer(WIDTH, HEIGHT);
+	//testInject->bindRenderDepthBuffer();
+	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["test3D"]);
+	testInject->setDrawBuffers();
+	if (!testInject->checkFboStatus()) {
+		return;
+	}
+#endif
 	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -214,11 +331,12 @@ float rot = 0.0;
 float elevation = 0.0;
 float rotSpeed = 30.0f;
 float elevationSpeed = 1.0f;
+bool test = true;
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	//Clear color
-	glClearColor(0.0, 0.0, 0.6, 1.0);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	//View port
@@ -254,9 +372,17 @@ void Display() {
 	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
 	glm::mat4 mv = controlCamera->getViewMatrix() * m;
 
-	glm::mat4 mvp_light = light->getProjMatrix() * light->getViewMatrix() * m;
-	//glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(m)));
+	glm::mat4 v_light = light->getViewMatrix();
+	glm::mat4 p_light = light->getProjMatrix();
+	glm::mat4 mvp_light = p_light * v_light * m;
+	glm::mat4 inverse_vLight = glm::inverse(v_light);
+	glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(v_light*m)));
 
+	glm::vec3 lightPosition = light->getPosition();
+
+	////////////////////////////////////////////////////
+	// SHADOW MAP
+	////////////////////////////////////////////////////
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_FRONT);
 	glEnable(GL_POLYGON_OFFSET_FILL);
@@ -265,58 +391,181 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, ShadowMapManager->getFboId());
 	shadowMap.Use();
 	glViewport(0, 0, SHADOWMAPSIZE, SHADOWMAPSIZE);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		light->computeMatrixes();
-		glUniformMatrix4fv(shadowMap("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
-		mesh->render();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	light->computeMatrixes();
+	glUniformMatrix4fv(shadowMap("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+	mesh->render();
 	shadowMap.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
+	////////////////////////////////////////////////////
+	// RSM
+	////////////////////////////////////////////////////
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
-	depthShader.Use();
-		glViewport(0, 0, RSMSIZE, RSMSIZE);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		light->computeMatrixes();
-		glUniformMatrix4fv(depthShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
-		glUniformMatrix4fv(depthShader("m"), 1, GL_FALSE, glm::value_ptr(m));
-		//glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
-		mesh->render();
-	depthShader.UnUse();
+	rsmShader.Use();
+	glViewport(0, 0, RSMSIZE, RSMSIZE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	light->computeMatrixes();
+	glUniformMatrix4fv(rsmShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+	//glUniformMatrix4fv(rsmShader("mv"), 1, GL_FALSE, glm::value_ptr(v_light));
+	glUniformMatrix4fv(rsmShader("m"), 1, GL_FALSE, glm::value_ptr(m));
+	glUniform3f(rsmShader("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	//glUniformMatrix3fv(rsmShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
+	mesh->render();
+	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	
 
 
+	////////////////////////////////////////////////////
+	// RENDER SCENE TO TEXTURE
+	////////////////////////////////////////////////////
 	glDisable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	basicShader.Use();
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
-		glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
-		glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-		glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
-		glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
-		glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
-		glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
-		glm::vec3 lightPosition = light->getPosition();
-		glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
-		mesh->render();
-		glBindTexture(GL_TEXTURE_2D, 0);
+	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
+	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
+	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
+	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	mesh->render();
+	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 
 	dd->setVPMatrix(mvp);
 	dd->draw();
 
+	////////////////////////////////////////////////////
+	// VPL DEBUG DRAW
+	////////////////////////////////////////////////////
+#ifdef VPL_DEBUG
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	glPointSize(2.5f);
+	VPLsDebug.Use();
+	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
+	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	VPLsDebug.UnUse();
+	glDisable(GL_PROGRAM_POINT_SIZE);
+#endif
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
-	//Draw quad on screen
+
+#ifdef LAYERED_FILL
+	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
+	//glViewport(0, 0, WIDTH, HEIGHT);
+	glViewport(0, 0,volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+	//Additive
+	glBlendEquation(GL_FUNC_ADD);
+	injectLight.Use();
+	glBindVertexArray(emptyVAO);//aktivujeme VAO
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);//deaktivujeme VAO
+	injectLight.UnUse();
+	glDisable(GL_BLEND);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#else
+	////////////////////////////////////////////////////
+	// LIGHT INJECT
+	////////////////////////////////////////////////////
+	//glViewport(0, 0, WIDTH, HEIGHT);
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	texManager.clear3Dtexture(texManager["LPVGridR"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["LPVGridG"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["LPVGridB"], volumeDimensions);
+	injectLight.Use();
+	glUniform1i(injectLight("LPVGridR"), 0);
+	glUniform1i(injectLight("LPVGridG"), 1);
+	glUniform1i(injectLight("LPVGridB"), 2);
+	glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
+	glUniform1i(injectLight("rsm_normal_tex"), 1);
+	glUniform1i(injectLight("rsm_flux_tex"), 2);
+	glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
+	glUniform1f(injectLight("f_cellSize"), cellSize);
+	glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	injectLight.UnUse();
+
+	////////////////////////////////////////////////////
+	// GEOMETRY INJECT
+	////////////////////////////////////////////////////
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	texManager.clear3Dtexture(texManager["GeometryVolume"], volumeDimensions);
+	geometryInject.Use();
+	glUniform1i(geometryInject("GeometryVolume"), 0);
+	glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
+	glUniform1i(geometryInject("rsm_normal_tex"), 1);
+	glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
+	glUniform1f(geometryInject("f_cellSize"), cellSize);
+	glUniform1f(geometryInject("f_tanLightFovXHalf"), f_tanLightFovXHalf);
+	glUniform1f(geometryInject("f_tanLightFovYHalf"), f_tanLightFovYHalf);
+	glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
+	glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glBindImageTexture(0, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	geometryInject.UnUse();
+
+	//float data[5 * 5 * 5 * 4];
+	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
+	//glBindTexture(GL_TEXTURE_3D, texManager["LPVGridR"]);
+	//glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
+	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
+
+#endif
+	
+	////////////////////////////////////////////////////
+	// FINAL COMPOSITION
+	////////////////////////////////////////////////////
+	//Draw quad on screen
+	glViewport(0, 0, WIDTH, HEIGHT);
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
@@ -329,7 +578,7 @@ void DisplayTexture(CTextureViewer * ctv) {
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	ctv->draw();
 }
@@ -350,14 +599,16 @@ void Reshape(int width, int height){
 	aspect = float(height) / float(width);
 }
 
-
 int main() {
+	//for (int i = 0; i < 25; i++) {
+	//	std::cout << i << ":\t" << i % 5 << ", " << i / 5 << std::endl;
+	//}
 
-	ilutRenderer(ILUT_OPENGL);
+	//ilutRenderer(ILUT_OPENGL);
 	ilInit();
 	iluInit();
-	ilutInit();
-	ilutRenderer(ILUT_OPENGL);
+	//ilutInit();
+
 
 	SDL_Window *mainwindow; /* Our window handle */
 	SDL_GLContext maincontext; /* Our opengl context handle */
@@ -372,12 +623,13 @@ int main() {
 	/* Request opengl 4.4 context. */
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	/* Turn on double buffering with a 24bit Z buffer.
 	* You may need to change this to 16 or 32 for your system */
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	//SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
 	/* Create our window centered at 512x512 resolution */
@@ -391,14 +643,16 @@ int main() {
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
-
+	//SDL_GL_MakeCurrent(mainwindow, maincontext);
+#ifdef W2
 	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w2){ /* Die if creation failed */
+	if (!w2){ // Die if creation failed 
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
 	}
+#endif
 #ifdef CTV
 	SDL_Window *w3;
 	w3 = SDL_CreateWindow("Window title goes here #3", 50, 50,
@@ -440,6 +694,7 @@ int main() {
 		std::cout << "GLEW Init: Success!" << std::endl;
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
+
 	
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
@@ -447,6 +702,21 @@ int main() {
 	SDL_GL_SetSwapInterval(1);
 
 	bool quit = false;
+
+	/*std::cout << "OpenGL 2.0: " << ((GLEW_VERSION_2_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 2.1: " << ((GLEW_VERSION_2_1 != 0) ? "Available" : "Unavailable") << std::endl;
+
+	std::cout << "OpenGL 3.0: " << ((GLEW_VERSION_3_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.1: " << ((GLEW_VERSION_3_1 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.2: " << ((GLEW_VERSION_3_2 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 3.3: " << ((GLEW_VERSION_3_3 != 0) ? "Available" : "Unavailable") << std::endl;
+
+	std::cout << "OpenGL 4.0: " << ((GLEW_VERSION_4_0 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.1: " << ((GLEW_VERSION_4_1 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.2: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.3: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
+	std::cout << "OpenGL 4.4: " << ((GLEW_VERSION_4_4 != 0) ? "Available" : "Unavailable") << std::endl;
+	//std::cout << "OpenGL 4.5: " << ((GLEW_VERSION_4_5 != 0) ? "Available" : "Unavailable") << std::endl;*/
 
 	Initialize(mainwindow);
 	Reshape(WIDTH, HEIGHT);
@@ -461,6 +731,7 @@ int main() {
 				//std::cout << "yes" << std::endl;
 				quit = true;
 			}
+#ifdef W2
 			if (event.type == SDL_WINDOWEVENT) {
 				switch (event.window.event) {
 				case SDL_WINDOWEVENT_CLOSE:
@@ -469,6 +740,7 @@ int main() {
 					break;
 				}
 			}
+#endif
 			if (event.type == SDL_MOUSEMOTION) {
 				if (event.motion.state & SDL_BUTTON_LMASK)
 				{
@@ -497,16 +769,16 @@ int main() {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_8]) {
-			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_2]) {
-			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)/*light->getDirection()*/* movementSpeed * 2.0f * ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(0, 1, 0)* movementSpeed * 2.0f * ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_4]) {
-			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f *ftime));
+			light->setPosition(light->getPosition() - (glm::vec3(1, 0, 0)* movementSpeed * 2.f *ftime));
 		}
 		else if (keys[SDL_SCANCODE_KP_6]) {
-			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)/*light->getRight()*/* movementSpeed * 2.f* ftime));
+			light->setPosition(light->getPosition() + (glm::vec3(1, 0, 0)* movementSpeed * 2.f* ftime));
 		}
 		//else if (keys[SDL_SCANCODE_KP_9]) {
 		//	light->setPosition(light->getPosition() - (glm::vec3(0, 0, 1)* movementSpeed * ftime));
@@ -549,9 +821,9 @@ int main() {
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w4);
 #endif
-
+#ifdef W2
 		SDL_GL_MakeCurrent(w2, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
+		//ctv->setTexture(texManager["rsm_depth_tex"]);
 		//rsm_world_space_coords_tex
 		//rsm_normal_tex
 		//rsm_flux_tex
@@ -559,7 +831,7 @@ int main() {
 		//ctv->setDepthOnly(true);
 		DisplayTexture(ctv);
 		SDL_GL_SwapWindow(w2);
-
+#endif
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
 		Display();
 		SDL_GL_SwapWindow(mainwindow);
@@ -577,12 +849,12 @@ int main() {
 
 
 
-	Finalize();
+	//Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-	SDL_DestroyWindow(w2);
+	//SDL_DestroyWindow(w2);
 
 	SDL_Quit();
 

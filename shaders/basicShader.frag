@@ -22,7 +22,7 @@ void main()
 		//shadow = (shadow > 0) ? 1.0 : 0.5;
 	}
 	float distance = length(eyeLightPos.xyz-eyePosition.xyz);
-	float att=1.0/(0.0005+0.009*distance+0.00095*distance*distance);
+	float att=1.0/(0.0005+0.009*distance+0.00035*distance*distance);
 
 	vec3 ld = vec3(1.0,1.0,1.0);
 	vec3 ls = vec3(1.0,1.0,1.0);

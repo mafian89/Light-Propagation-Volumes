@@ -187,9 +187,11 @@ void Mesh::Texture::load(std::string path) {
 }
 
 Mesh::Texture::Texture(std::string path, GLenum textType) {
+#ifndef DEBUG
 	Mesh::Texture::path = path;
 	Mesh::Texture::textType = textType;
 	Mesh::Texture::load(path);
+#endif
 }
 
 Mesh::Texture::~Texture() {
@@ -218,8 +220,10 @@ Mesh::Mesh(const char *filename)
 		meshEntries[i] = new Mesh::MeshEntry(scene->mMeshes[i], *this);
 	}
 
+
 	//Load materials and textures (aiScene *)
 	initMaterials(scene);
+
 
 	boundingBox = new CBoundingBox(this->tmpMin, this->tmpMax);
 	//local = CBoundingBox();
@@ -274,12 +278,14 @@ CBoundingBox* Mesh::getBoundingBox() {
 *	Renders all loaded MeshEntries
 **/
 void Mesh::render() {
+
 	for(int i = 0; i < meshEntries.size(); ++i) {
 		const unsigned int MaterialIndex = meshEntries[i]->materialIndex;
 
 		if (MaterialIndex < textures.size() && textures[MaterialIndex]) {
 			textures[MaterialIndex]->bind(GL_TEXTURE0);
 		}
+
 
 		meshEntries.at(i)->render();
 	}
