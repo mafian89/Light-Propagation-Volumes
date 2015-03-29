@@ -47,7 +47,8 @@ glm::vec3 volumeDimensions,vMin;
 float cellSize;
 float f_tanLightFovXHalf;
 float f_tanLightFovYHalf;
-float f_weightModifier = 20.0f; //Arbitrary value
+float f_texelAreaModifier = 1.0f; //Arbitrary value
+bool b_useNormalOffset = false;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -232,13 +233,16 @@ void Initialize(SDL_Window * w) {
 	geometryInject.AddUniform("f_tanLightFovYHalf");
 	geometryInject.AddUniform("v_lightPos");
 	geometryInject.AddUniform("m_lightView");
+	geometryInject.AddUniform("f_texelAreaModifier");
 	geometryInject.UnUse();
 
 #ifdef VPL_DEBUG
 	VPLsDebug.Use();
 	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("rsm_normal_tex");
 	VPLsDebug.AddUniform("mvp");
 	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.AddUniform("b_useNormalOffset");
 	VPLsDebug.UnUse();
 #endif
 
@@ -419,53 +423,6 @@ void Display() {
 
 
 
-	////////////////////////////////////////////////////
-	// RENDER SCENE TO TEXTURE
-	////////////////////////////////////////////////////
-	glDisable(GL_CULL_FACE);
-	//glCullFace(GL_BACK);
-	glViewport(0, 0, WIDTH, HEIGHT);
-	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	basicShader.Use();
-	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
-	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
-	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
-	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
-	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
-	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
-	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
-	mesh->render();
-	glBindTexture(GL_TEXTURE_2D, 0);
-	basicShader.UnUse();
-
-	dd->setVPMatrix(mvp);
-	dd->draw();
-
-	////////////////////////////////////////////////////
-	// VPL DEBUG DRAW
-	////////////////////////////////////////////////////
-#ifdef VPL_DEBUG
-	glEnable(GL_PROGRAM_POINT_SIZE);
-	glPointSize(2.5f);
-	VPLsDebug.Use();
-	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
-	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-	glBindVertexArray(VPLsVAO);
-	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-	glBindVertexArray(0);
-	VPLsDebug.UnUse();
-	glDisable(GL_PROGRAM_POINT_SIZE);
-#endif
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 #ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
@@ -537,10 +494,12 @@ void Display() {
 	glUniform1f(geometryInject("f_cellSize"), cellSize);
 	glUniform1f(geometryInject("f_tanLightFovXHalf"), f_tanLightFovXHalf);
 	glUniform1f(geometryInject("f_tanLightFovYHalf"), f_tanLightFovYHalf);
+	glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
 	glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 	glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
 	glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
 	glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+	//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
 	glActiveTexture(GL_TEXTURE1);
@@ -559,6 +518,57 @@ void Display() {
 
 #endif
 	
+	////////////////////////////////////////////////////
+	// RENDER SCENE TO TEXTURE
+	////////////////////////////////////////////////////
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	//glCullFace(GL_BACK);
+	glViewport(0, 0, WIDTH, HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	basicShader.Use();
+	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
+	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
+	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
+	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	mesh->render();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	basicShader.UnUse();
+
+	dd->setVPMatrix(mvp);
+	dd->draw();
+	////////////////////////////////////////////////////
+	// VPL DEBUG DRAW
+	////////////////////////////////////////////////////
+#ifdef VPL_DEBUG
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	glPointSize(2.5f);
+	VPLsDebug.Use();
+	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
+	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
+	glUniform1i(VPLsDebug("rsm_normal_tex"), 1);
+	glUniform1i(VPLsDebug("b_useNormalOffset"), b_useNormalOffset);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	VPLsDebug.UnUse();
+	glDisable(GL_PROGRAM_POINT_SIZE);
+#endif
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	////////////////////////////////////////////////////
 	// FINAL COMPOSITION
 	////////////////////////////////////////////////////

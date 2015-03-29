@@ -40,5 +40,5 @@
 #define DEG2RAD (M_PI / 180.0f)
 
 #define VPL_DEBUG
-//#define ORTHO_PROJECTION
+#define ORTHO_PROJECTION
 //#define LAYERED_FILL

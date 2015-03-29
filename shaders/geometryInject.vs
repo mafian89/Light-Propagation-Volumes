@@ -12,6 +12,7 @@ uniform vec3 v_min; //min corner of the volume
 uniform vec3 v_lightPos;
 uniform float f_tanLightFovXHalf;
 uniform float f_tanLightFovYHalf;
+uniform float f_texelAreaModifier;
 
 flat out ivec3 v_volumeCellIndex;
 out vec3 v_posFromRSM;
@@ -23,7 +24,7 @@ ivec3 convertPointToGridIndex(vec3 pos, vec3 normal) {
 }
 
 //Sample from camera
-float calculateSurfelAreaCamera(vec3 viewPos) {
+float calculateSurfelAreaLightViewM(vec3 viewPos) {
 	return (4.0 * viewPos.z * viewPos.z * f_tanLightFovXHalf * f_tanLightFovYHalf)/(i_RSMsize * i_RSMsize);
 }
 
@@ -32,11 +33,12 @@ float calculateSurfelAreaLight(vec3 lightPos) {
 	return (4.0 * lightPos.z * lightPos.z * f_tanLightFovXHalf * f_tanLightFovYHalf)/(i_RSMsize * i_RSMsize);
 }
 
-float calculateSurfelAreaLightDEBUG(vec3 lightPos) {
+//This function and function above gives the same results - because I have 90 degree fov -> tan(45.0) = 1;
+float calculateSurfelAreaLightOrtho(vec3 lightPos) {
 	return (4.0 * lightPos.z * lightPos.z)/(i_RSMsize * i_RSMsize);
 }
 
-#define LIGHT
+//#define LIGHTVIEW
 
 void main()
 {
@@ -45,12 +47,12 @@ void main()
 	v_posFromRSM = texelFetch(rsm_world_space_coords_tex, v_RSMCoords,0).rgb;
 	v_normalFromRSM = texelFetch(rsm_normal_tex, v_RSMCoords,0).rgb;
 
-	#ifndef LIGHT
+	#ifdef LIGHTVIEW
 		vec4 viewPos = m_lightView * vec4(v_posFromRSM,1.0);
-		surfelArea = calculateSurfelAreaCamera(viewPos.xyz);
+		surfelArea = calculateSurfelAreaLightViewM(viewPos.xyz) *  f_texelAreaModifier;
 	#else
-		surfelArea = calculateSurfelAreaLight(v_lightPos);
-		//surfelArea = calculateSurfelAreaLightDEBUG(v_lightPos);
+		surfelArea = calculateSurfelAreaLight(v_lightPos) * f_texelAreaModifier;
+		//surfelArea = calculateSurfelAreaLightOrtho(v_lightPos)* f_texelAreaModifier;
 	#endif
 
 	v_volumeCellIndex = convertPointToGridIndex(v_posFromRSM,v_normalFromRSM);
