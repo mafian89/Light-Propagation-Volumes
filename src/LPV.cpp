@@ -28,8 +28,9 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject, gBufferShader;
 Mesh * mesh;
+GBuffer * gBuffer;
 float movementSpeed = 10.0f;
 float ftime;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
@@ -148,6 +149,12 @@ void Initialize(SDL_Window * w) {
 	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
 	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
 	shadowMap.CreateAndLinkProgram();
+
+	gBufferShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/gbufferFill.vs").c_str());
+	gBufferShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/gbufferFill.frag").c_str());
+	gBufferShader.CreateAndLinkProgram();
+
+
 #ifdef LAYERED_FILL
 	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
 	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
@@ -205,6 +212,14 @@ void Initialize(SDL_Window * w) {
 	shadowMap.Use();
 	shadowMap.AddUniform("mvp");
 	shadowMap.UnUse();
+
+	gBufferShader.Use();
+	gBufferShader.AddUniform("mvp");
+	gBufferShader.AddUniform("mn");
+	gBufferShader.AddUniform("mv");
+	gBufferShader.AddUniform("colorTex");
+	rsmShader.UnUse();
+
 #ifndef LAYERED_FILL
 	injectLight.Use();
 	injectLight.AddUniform("LPVGridR");
@@ -261,6 +276,9 @@ void Initialize(SDL_Window * w) {
 
 	f_tanLightFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
 	f_tanLightFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
+
+	gBuffer = new GBuffer(*(&texManager), WIDTH, HEIGHT);
+
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -383,6 +401,21 @@ void Display() {
 	glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(v_light*m)));
 
 	glm::vec3 lightPosition = light->getPosition();
+
+	////////////////////////////////////////////////////
+	// FILL THE G-BUFFER
+	////////////////////////////////////////////////////
+	gBuffer->bindToRender();
+	glViewport(0, 0, WIDTH, HEIGHT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gBufferShader.Use();
+	glUniform1i(gBufferShader("colorTex"), 0); 
+	glUniformMatrix4fv(gBufferShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(gBufferShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+	glUniformMatrix3fv(gBufferShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+	mesh->render();
+	gBufferShader.UnUse();
+	gBuffer->unbind();
 
 	////////////////////////////////////////////////////
 	// SHADOW MAP
@@ -603,6 +636,7 @@ void Finalize(void) {
 	delete RSMFboManager;
 	delete light;
 	delete dd;
+	delete gBuffer;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -864,7 +898,9 @@ int main() {
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-	//SDL_DestroyWindow(w2);
+#ifdef W2
+	SDL_DestroyWindow(w2);
+#endif
 
 	SDL_Quit();
 

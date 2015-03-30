@@ -51,6 +51,9 @@
     <ClCompile Include="..\src\DebugDrawer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\GBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\common.h">
@@ -84,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\DebugDrawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\GBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -146,6 +152,12 @@
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="..\shaders\geometryInject.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\gbufferFill.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\gbufferFill.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

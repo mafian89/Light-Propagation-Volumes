@@ -21,6 +21,7 @@
 #include "texUtils.h"
 #include "CBoundingBox.h"
 #include "DebugDrawer.h"
+#include "GBuffer.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
