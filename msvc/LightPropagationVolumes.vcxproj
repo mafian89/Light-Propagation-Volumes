@@ -57,6 +57,8 @@
     <None Include="..\shaders\lightInject_layered.frag" />
     <None Include="..\shaders\lightInject_layered.gs" />
     <None Include="..\shaders\lightInject_layered.vs" />
+    <None Include="..\shaders\propagation.frag" />
+    <None Include="..\shaders\propagation.vs" />
     <None Include="..\shaders\RSMpass.frag" />
     <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />

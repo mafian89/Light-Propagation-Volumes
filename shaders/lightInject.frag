@@ -17,9 +17,15 @@
 // SH_C0 * SH_cosLobe_C0 = 0.25000000007f
 // SH_C1 * SH_cosLobe_C1 = 0.5000000011f
 
+#define ALLCHANNELTEXTURE
+
+#ifdef ALLCHANNELTEXTURE
+layout(rgba16f ,location = 0) uniform image3D LightGrid;
+#else
 layout(rgba16f ,location = 0) uniform image3D LPVGridR;
 layout(rgba16f ,location = 1) uniform image3D LPVGridG;
 layout(rgba16f ,location = 2) uniform image3D LPVGridB;
+#endif
 layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform vec3 v_gridDim;
@@ -49,7 +55,13 @@ void main()
 	vec4 SHCoeffsG = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.g;
 	vec4 SHCoeffsB = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.b;
 
+#ifdef ALLCHANNELTEXTURE
+	imageAtomicAdd(LightGrid,v_volumeCellIndex,f16vec4(SHCoeffsR));
+	imageAtomicAdd(LightGrid,ivec3(v_volumeCellIndex.x, v_volumeCellIndex.y + v_gridDim.y, v_volumeCellIndex.z),f16vec4(SHCoeffsG));
+	imageAtomicAdd(LightGrid,ivec3(v_volumeCellIndex.x, v_volumeCellIndex.y + 2*v_gridDim.y, v_volumeCellIndex.z),f16vec4(SHCoeffsB));
+#else
 	imageAtomicAdd(LPVGridR,v_volumeCellIndex,f16vec4(SHCoeffsR));
 	imageAtomicAdd(LPVGridG,v_volumeCellIndex,f16vec4(SHCoeffsG));
 	imageAtomicAdd(LPVGridB,v_volumeCellIndex,f16vec4(SHCoeffsB));
+#endif
 }

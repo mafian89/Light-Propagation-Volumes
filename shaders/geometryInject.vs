@@ -10,8 +10,8 @@ uniform int i_RSMsize;
 uniform float f_cellSize;
 uniform vec3 v_min; //min corner of the volume
 uniform vec3 v_lightPos;
-uniform float f_tanLightFovXHalf;
-uniform float f_tanLightFovYHalf;
+uniform float f_tanFovXHalf;
+uniform float f_tanFovYHalf;
 uniform float f_texelAreaModifier;
 
 flat out ivec3 v_volumeCellIndex;
@@ -19,18 +19,18 @@ out vec3 v_posFromRSM;
 out vec3 v_normalFromRSM;
 out float surfelArea;
 
-ivec3 convertPointToGridIndex(vec3 pos, vec3 normal) {
+ivec3 convertPointToGridIndex(vec3 pos) {
 	return ivec3((pos - v_min) / f_cellSize - vec3( 0.5, 0.5, 0.5 )); //shift by half a cell
 }
 
 //Sample from camera
 float calculateSurfelAreaLightViewM(vec3 viewPos) {
-	return (4.0 * viewPos.z * viewPos.z * f_tanLightFovXHalf * f_tanLightFovYHalf)/(i_RSMsize * i_RSMsize);
+	return (4.0 * viewPos.z * viewPos.z * f_tanFovXHalf * f_tanFovYHalf)/(i_RSMsize * i_RSMsize);
 }
 
 //Sample from light
 float calculateSurfelAreaLight(vec3 lightPos) {
-	return (4.0 * lightPos.z * lightPos.z * f_tanLightFovXHalf * f_tanLightFovYHalf)/(i_RSMsize * i_RSMsize);
+	return (4.0 * lightPos.z * lightPos.z * f_tanFovXHalf * f_tanFovYHalf)/(i_RSMsize * i_RSMsize);
 }
 
 //This function and function above gives the same results - because I have 90 degree fov -> tan(45.0) = 1;
@@ -55,7 +55,7 @@ void main()
 		//surfelArea = calculateSurfelAreaLightOrtho(v_lightPos)* f_texelAreaModifier;
 	#endif
 
-	v_volumeCellIndex = convertPointToGridIndex(v_posFromRSM,v_normalFromRSM);
+	v_volumeCellIndex = convertPointToGridIndex(v_posFromRSM);
 
 	gl_Position =  vec4(vPosition,0.0,1.0);
 }

@@ -160,5 +160,11 @@
     <None Include="..\shaders\gbufferFill.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\propagation.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\propagation.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

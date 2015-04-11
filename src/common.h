@@ -42,4 +42,5 @@
 
 #define VPL_DEBUG
 #define ORTHO_PROJECTION
+#define ALLCHANNELTEXTURE
 //#define LAYERED_FILL
