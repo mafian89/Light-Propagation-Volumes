@@ -279,6 +279,10 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("vLightPos");
 	basicShader.AddUniform("shadowMatrix");
 	basicShader.AddUniform("depthTexture");
+	basicShader.AddUniform("AccumulatorLPV");
+	basicShader.AddUniform("f_cellSize");
+	basicShader.AddUniform("v_gridDim");
+	basicShader.AddUniform("v_min");
 	basicShader.UnUse();
 
 	rsmShader.Use();
@@ -350,6 +354,7 @@ void Initialize(SDL_Window * w) {
 	propagationShader.AddUniform("LightGridForNextStep");
 	propagationShader.AddUniform("LightGrid");
 	propagationShader.AddUniform("b_firstPropStep");
+	propagationShader.AddUniform("v_gridDim");
 	propagationShader.UnUse();
 
 
@@ -374,6 +379,9 @@ void Initialize(SDL_Window * w) {
 
 	gBuffer = new GBuffer(*(&texManager), WIDTH, HEIGHT);
 
+
+	glm::vec3 o = (glm::vec3(11.7542, 14.1148, 0.822185) - vMin) / cellSize;
+	std::cout << o.x << " " << o.y << " " << o.z << std::endl;
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -681,10 +689,11 @@ void Display() {
 	glUniform1i(propagationShader("LightGrid"), 1);
 	glUniform1i(propagationShader("LightGridForNextStep"), 2);
 	glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
 	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
-	//glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 
 	glBindVertexArray(PropagationVAO);
 	glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
@@ -718,6 +727,17 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	basicShader.Use();
+	/*
+	basicShader.AddUniform("AccumulatorLPV");
+	basicShader.AddUniform("f_cellSize");
+	basicShader.AddUniform("v_gridDim");
+	basicShader.AddUniform("v_min");
+	*/
+	glUniform1i(basicShader("AccumulatorLPV"), 0);
+	glUniform1f(basicShader("f_cellSize"), cellSize);
+	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(basicShader("v_min"), vMin.x, vMin.y, vMin.z);
+	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
