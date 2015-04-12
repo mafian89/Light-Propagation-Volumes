@@ -49,7 +49,8 @@ void main()
 	float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
 
 	vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * blockingPotencial;
-
+	//surfelArea
+	//vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * surfelArea;
 
 	imageAtomicAdd(GeometryVolume,v_volumeCellIndex,f16vec4(SHCoeffGV));
 

@@ -44,12 +44,15 @@ DebugDrawer * dd;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
 GLuint VPLsVAO, VPLsVBO, PropagationVAO, PropagationVBO;
-glm::vec3 volumeDimensions,vMin,editedVolumeDimensions;
+glm::vec3 volumeDimensions, vMin, editedVolumeDimensions;
 float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
-float f_texelAreaModifier = 1.0f; //Arbitrary value
+float f_texelAreaModifier = 10.0f; //Arbitrary value
 bool b_useNormalOffset = false;
+bool b_firstPropStep = true;
+GLuint propTextures[PROPAGATION_STEPS];
+int volumeDimensionsMult;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -96,12 +99,16 @@ void initializeVPLsInvocations() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(0);
-	
+
 	injectLight.UnUse();
 
 	//Free memory
 	delete testPoints;
 }
+
+typedef struct pi {
+	float r, c, d;
+} PROP_ITEM;
 
 void initializePropagationVAO(glm::vec3 volumeDimensions) {
 	propagationShader.Use();
@@ -117,16 +124,29 @@ void initializePropagationVAO(glm::vec3 volumeDimensions) {
 	//Bind VBO
 	glBindBuffer(GL_ARRAY_BUFFER, PropagationVBO);
 
-	int count = volumeDimensions.x * volumeDimensions.y * volumeDimensions.z;
-	float *testPoints = new float[3 * count];
+	volumeDimensionsMult = volumeDimensions.x * volumeDimensions.y * volumeDimensions.z;
+	int x = volumeDimensions.x, y = volumeDimensions.y, z = volumeDimensions.z;
+	/*float *testPoints = new float[3 * count];
 	for (int i = 0; i < count; ++i) {
 		testPoints[i * 3] = 0.0f;
 		testPoints[i * 3 + 1] = 0.0f;
 		testPoints[i * 3 + 2] = 0.0f;
+	}*/
+
+	std::vector<glm::vec3> coords;
+	for (int d = 0; d < z; d++) {
+		for (int c = 0; c < y; c++) {
+			for (int r = 0; r < x; r++) {
+				coords.push_back(glm::vec3((float)r, (float)c, (float)d));
+			}
+		}
 	}
 
+	//std::cout << coords.size() * 3 * sizeof(float) << std::endl;
+	//std::cout << coords.size() * sizeof(glm::vec3) << std::endl;
+
 	//Alocate buffer
-	glBufferData(GL_ARRAY_BUFFER, sizeof(testPoints), testPoints, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, coords.size() * 3 * sizeof(float), &coords.front(), GL_STATIC_DRAW);
 	//Fill VBO
 	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testPoints), testPoints);
 
@@ -139,6 +159,23 @@ void initializePropagationVAO(glm::vec3 volumeDimensions) {
 	glBindVertexArray(0);
 
 	propagationShader.UnUse();
+	//delete testPoints;
+
+	/*for (int i = 0; i < coords.size(); i++) {
+		std::cout << coords[i].x << " " << coords[i].y << " " << coords[i].z << std::endl;
+	}*/
+	//delete tmp;
+}
+
+//This function *MUST* be called after creation of LightGrid texture
+void initPropStepTextures() {
+	propTextures[0] = texManager["LightGrid"];
+	for (int i = 1; i < PROPAGATION_STEPS; i++) {
+		string texName = "LPVStep" + std::to_string(i);
+		//std::cout << texName << std::endl;
+		texManager.createRGBA16F3DTexture(texName, editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+		propTextures[i] = texManager[texName];
+	}
 }
 
 void Initialize(SDL_Window * w) {
@@ -310,6 +347,9 @@ void Initialize(SDL_Window * w) {
 
 	propagationShader.Use();
 	propagationShader.AddUniform("AccumulatorLPV");
+	propagationShader.AddUniform("LightGridForNextStep");
+	propagationShader.AddUniform("LightGrid");
+	propagationShader.AddUniform("b_firstPropStep");
 	propagationShader.UnUse();
 
 
@@ -327,7 +367,7 @@ void Initialize(SDL_Window * w) {
 	initializePropagationVAO(volumeDimensions);
 
 	float f_lightFov = light->getFov(); //in degrees, one must convert to radians
-	float f_lightAspect = light->getAspectRatio(); 
+	float f_lightAspect = light->getAspectRatio();
 
 	f_tanFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
 	f_tanFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
@@ -349,7 +389,6 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
-	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #ifndef ALLCHANNELTEXTURE
 	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -357,8 +396,10 @@ void Initialize(SDL_Window * w) {
 #else
 	texManager.createRGBA16F3DTexture("LightGrid", editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #endif
+	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("AccumulatorLPV", editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 
+	initPropStepTextures();
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #ifdef LAYERED_FILL
 	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -466,18 +507,18 @@ void Display() {
 	////////////////////////////////////////////////////
 	// FILL THE G-BUFFER
 	////////////////////////////////////////////////////
-	gBuffer->bindToRender();
+	/*gBuffer->bindToRender();
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gBufferShader.Use();
-	glUniform1i(gBufferShader("colorTex"), 0); 
+	glUniform1i(gBufferShader("colorTex"), 0);
 	glUniformMatrix4fv(gBufferShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 	glUniformMatrix4fv(gBufferShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
 	glUniformMatrix3fv(gBufferShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
 	mesh->render();
 	gBufferShader.UnUse();
-	gBuffer->unbind();
-
+	gBuffer->unbind();*/
+	
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -520,7 +561,7 @@ void Display() {
 #ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
-	glViewport(0, 0,volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -584,6 +625,8 @@ void Display() {
 	glBindVertexArray(0);
 	injectLight.UnUse();
 
+	//propTextures[0] = texManager["LightGrid"];
+
 	////////////////////////////////////////////////////
 	// GEOMETRY INJECT
 	////////////////////////////////////////////////////
@@ -623,6 +666,47 @@ void Display() {
 	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
 
 #endif
+	
+	////////////////////////////////////////////////////
+	// LIGHT PROPAGATION
+	////////////////////////////////////////////////////
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	propagationShader.Use();
+	texManager.clear3Dtexture(texManager["AccumulatorLPV"], editedVolumeDimensions);
+
+	glUniform1i(propagationShader("AccumulatorLPV"), 0);
+	glUniform1i(propagationShader("LightGrid"), 1);
+	glUniform1i(propagationShader("LightGridForNextStep"), 2);
+	glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+
+	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
+	//glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+	glBindVertexArray(PropagationVAO);
+	glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+	glBindVertexArray(0);
+	propagationShader.UnUse();
+
+	//if (test) {
+	//	//cout << volumeDimensionsMult << endl;
+	//	int ll = editedVolumeDimensions.x * editedVolumeDimensions.y * editedVolumeDimensions.z;
+	//	float *data = new float[ll * 4];
+	//	for (unsigned i = 0; i < ll * 4; ++i)data[i] = 0.;
+	//	glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+	//	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
+	//	for (unsigned i = 0; i < ll * 4; ++i) {
+	//		if (data[i] > 0.0)
+	//			std::cerr << i << " " << data[i] << std::endl;
+	//	}
+
+	//	delete data;
+	//	test = false;
+	//}
+
 	
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
@@ -812,7 +896,7 @@ int main() {
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
 
-	
+
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
 
