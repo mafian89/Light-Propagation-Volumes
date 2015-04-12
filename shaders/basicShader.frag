@@ -3,8 +3,16 @@
 #extension GL_NV_shader_atomic_fp16_vector : require
 #extension GL_NV_gpu_shader5 : require
 
-layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
-layout(early_fragment_tests )in;//turn on early depth tests
+//#define USESAMPLER3D
+
+#ifdef USESAMPLER3D
+	uniform sampler3D AccumulatorLPV;
+#else
+	layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
+	layout(early_fragment_tests )in;//turn on early depth tests
+#endif
+
+
 
 //For MRT attachment 0
 layout(location = 0) out vec4 final_color;
@@ -36,7 +44,6 @@ ivec3 getTextureCoordinatesForGrid(ivec3 c, int ch) {
 
 	return ivec3(c.x, c.y + ch * v_gridDim.y, c.z);
 }
-
 void main()
 {
 	float shadow = 1.0;
@@ -72,12 +79,22 @@ void main()
 
 
 	vec4 SHintensity = evalSH_direct( -worldNorm );
-    vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize;// / v_gridDim;
-    vec3 lpvIntensity = vec3( 
-						dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),0) ) ),
-						dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),1) ) ),
-						dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),2) ) )
-					);
+	#ifdef USESAMPLER3D
+		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim;
+		lpvCellCoords.y = lpvCellCoords.y / 3.0;
+		vec3 lpvIntensity = vec3( 
+			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) ),
+			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) ),
+			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) )
+		);
+	#else
+		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize;// / v_gridDim;
+		vec3 lpvIntensity = vec3( 
+			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),0) ) ),
+			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),1) ) ),
+			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),2) ) )
+		);
+	#endif
 
 	vec3 finalLPVRadiance = 1*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
 

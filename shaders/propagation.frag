@@ -6,6 +6,7 @@
 layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
 layout(rgba16f ,location = 1) uniform image3D LightGrid;
 layout(rgba16f ,location = 2) uniform image3D LightGridForNextStep;
+layout(rgba16f ,location = 3) uniform image3D GeometryVolume;
 layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform bool b_firstPropStep;
@@ -119,6 +120,7 @@ void propagate() {
 
 		float occlusionValue = 1.0; // no occlusion
 		//TODO: Occlusion!!!!
+		vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
 
 		float occludedDirectFaceContribution = occlusionValue * directFaceSubtendedSolidAngle;
 
@@ -138,6 +140,7 @@ void propagate() {
 			vec3 reprojDirection = getReprojSideDirection( face, mainDirection );
 
 			//TODO: Occlusion!!!!
+			vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
 
 			float occludedSideFaceContribution = occlusionValue * sideFaceSubtendedSolidAngle;
 			
@@ -162,5 +165,7 @@ void main()
 {
 	propagate();
 	//vec4 Rchannel = imageLoad(LightGrid, cellIndex);
-	//imageAtomicAdd(AccumulatorLPV, cellIndex,f16vec4(Rchannel));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(1.0,0.0,0.0,0.0));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(0.0,1.0,0.0,0.0));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(0.0,0.0,1.0,0.0));
 }

@@ -365,8 +365,8 @@ void Initialize(SDL_Window * w) {
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
 	volumeDimensions = mesh->getBoundingBox()->getDimensions();
 	editedVolumeDimensions = glm::vec3(volumeDimensions.x, volumeDimensions.y * 3, volumeDimensions.z);
-	std::cout << "Grid size: " << volumeDimensions.x << "x" << volumeDimensions.y << "x" << volumeDimensions.z << std::endl;
 	cellSize = mesh->getBoundingBox()->getCellSize();
+	std::cout << "Grid size: " << volumeDimensions.x << "x" << volumeDimensions.y << "x" << volumeDimensions.z << " cell size: " << cellSize << std::endl;
 	vMin = mesh->getBoundingBox()->getMin();
 	initializeVPLsInvocations();
 	initializePropagationVAO(volumeDimensions);
@@ -598,7 +598,7 @@ void Display() {
 	injectLight.Use();
 
 #ifdef ALLCHANNELTEXTURE
-	texManager.clear3Dtexture(texManager["LightGrid"], editedVolumeDimensions);
+	texManager.clear3Dtexture(texManager["LightGrid"]);
 	glUniform1i(injectLight("LightGrid"), 0);
 #else
 	texManager.clear3Dtexture(texManager["LPVGridR"], volumeDimensions);
@@ -643,7 +643,7 @@ void Display() {
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	texManager.clear3Dtexture(texManager["GeometryVolume"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["GeometryVolume"]);
 	geometryInject.Use();
 	glUniform1i(geometryInject("GeometryVolume"), 0);
 	glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
@@ -684,7 +684,10 @@ void Display() {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	propagationShader.Use();
-	texManager.clear3Dtexture(texManager["AccumulatorLPV"], editedVolumeDimensions);
+
+	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
+	texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
 
 	for (int i = 0; i < PROPAGATION_STEPS; i++) {
 		glUniform1i(propagationShader("AccumulatorLPV"), 0);
@@ -696,6 +699,9 @@ void Display() {
 		glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 		glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
 		glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(3, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+		texManager.clear3Dtexture(propTextures[1]);
 
 		glBindVertexArray(PropagationVAO);
 		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
@@ -736,11 +742,19 @@ void Display() {
 	basicShader.AddUniform("v_gridDim");
 	basicShader.AddUniform("v_min");
 	*/
+#ifdef USESAMPLER3D
+	glUniform1i(basicShader("AccumulatorLPV"), 3);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+#else
 	glUniform1i(basicShader("AccumulatorLPV"), 0);
+	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+#endif
+	
 	glUniform1f(basicShader("f_cellSize"), cellSize);
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 	glUniform3f(basicShader("v_min"), vMin.x, vMin.y, vMin.z);
-	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
 	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));

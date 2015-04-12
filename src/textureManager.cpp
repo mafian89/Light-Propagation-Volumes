@@ -69,15 +69,17 @@ void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 di
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
 	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, w, h, d, 0, GL_RGBA, GL_FLOAT, NULL);
 	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, w, h, d, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
-	clear3Dtexture(textures[texture], dim);
+	std::vector<GLfloat> emptyData(dim.x * dim.y * dim.z * sizeof(float), 0.0);
+	glBindTexture(GL_TEXTURE_3D, textures[texture]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, dim.x, dim.y, dim.z, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+	glBindTexture(GL_TEXTURE_3D, 0);
+	//clear3Dtexture(textures[texture], dim);
 	//glBindTexture(GL_TEXTURE_3D, 0);
 }
 
-void CTextureManager::clear3Dtexture(GLuint texture, glm::vec3 dim) {
-	std::vector<GLfloat> emptyData(dim.x * dim.y * dim.z * sizeof(float), 0.0);
-	glBindTexture(GL_TEXTURE_3D, texture);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, dim.x , dim.y , dim.z, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
-	glBindTexture(GL_TEXTURE_3D, 0);
+void CTextureManager::clear3Dtexture(GLuint texture) {
+	GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	glClearTexImage(texture, 0, GL_RGBA, GL_FLOAT, &data[0]);
 }
 
 void CTextureManager::createRGBA3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
