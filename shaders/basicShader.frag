@@ -45,7 +45,7 @@ void main()
 		shadow = texture(depthTexture, vec3(coord.xyz)-vec3(0.00001));
 		//textureProj does perspective division for me
 		//shadow = textureProj(depthTexture, shadowCoord);
-		shadow = (shadow > 0) ? 1.0 : 0.5;
+		shadow = (shadow > 0) ? 1.0 : 0.1;
 	}
 	float distance = length(eyeLightPos.xyz-eyePosition.xyz);
 	float att=1.0/(0.0005+0.009*distance+0.00035*distance*distance);
@@ -79,7 +79,7 @@ void main()
 						dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),2) ) )
 					);
 
-	vec3 finalLPVRadiance =  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
+	vec3 finalLPVRadiance = 1*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
 
 	vec3 lightIntesity =  shadow*(ambient + ((finalLPVRadiance*diffuse) + kd) + spec)*att;
 	final_color = vec4(lightIntesity,1.0);

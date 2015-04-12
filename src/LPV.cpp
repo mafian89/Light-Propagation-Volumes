@@ -380,8 +380,8 @@ void Initialize(SDL_Window * w) {
 	gBuffer = new GBuffer(*(&texManager), WIDTH, HEIGHT);
 
 
-	glm::vec3 o = (glm::vec3(11.7542, 14.1148, 0.822185) - vMin) / cellSize;
-	std::cout << o.x << " " << o.y << " " << o.z << std::endl;
+	//glm::vec3 o = (glm::vec3(11.7542, 14.1148, 0.822185) - vMin) / cellSize;
+	//std::cout << o.x << " " << o.y << " " << o.z << std::endl;
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -546,6 +546,7 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
+	//glDisable(GL_CULL_FACE);
 
 	////////////////////////////////////////////////////
 	// RSM
@@ -685,19 +686,21 @@ void Display() {
 	propagationShader.Use();
 	texManager.clear3Dtexture(texManager["AccumulatorLPV"], editedVolumeDimensions);
 
-	glUniform1i(propagationShader("AccumulatorLPV"), 0);
-	glUniform1i(propagationShader("LightGrid"), 1);
-	glUniform1i(propagationShader("LightGridForNextStep"), 2);
-	glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
-	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	for (int i = 0; i < PROPAGATION_STEPS; i++) {
+		glUniform1i(propagationShader("AccumulatorLPV"), 0);
+		glUniform1i(propagationShader("LightGrid"), 1);
+		glUniform1i(propagationShader("LightGridForNextStep"), 2);
+		glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+		glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
-	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
-	glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
+		glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 
-	glBindVertexArray(PropagationVAO);
-	glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
-	glBindVertexArray(0);
+		glBindVertexArray(PropagationVAO);
+		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+		glBindVertexArray(0);
+	}
 	propagationShader.UnUse();
 
 	//if (test) {

@@ -109,13 +109,13 @@ void propagate() {
 		//get neighbour cell indexindex
 		ivec3 neighbourCellIndex = cellIndex - mainDirection;
 		//Load sh coeffs - CHECK THIS ONCE AGAIN!!!
-		if(isInside(neighbourCellIndex)) {
+		//if(isInside(neighbourCellIndex)) {
 			RSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 0));
 			GSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 1));
 			BSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 2));
-		}else{
+		/*}else{
 			break;
-		}
+		}*/
 
 		float occlusionValue = 1.0; // no occlusion
 		//TODO: Occlusion!!!!
