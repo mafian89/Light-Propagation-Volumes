@@ -11,7 +11,10 @@
 	uniform sampler3D GAccumulatorLPV;
 	uniform sampler3D BAccumulatorLPV;
 #else
-	layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
+	//layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
+	layout(rgba16f ,location = 0) uniform image3D RAccumulatorLPV;
+	layout(rgba16f ,location = 1) uniform image3D GAccumulatorLPV;
+	layout(rgba16f ,location = 2) uniform image3D BAccumulatorLPV;
 	layout(early_fragment_tests )in;//turn on early depth tests
 #endif
 
@@ -94,9 +97,9 @@ void main()
 	#else
 		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize;// / v_gridDim;
 		vec3 lpvIntensity = vec3( 
-			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),0) ) ),
-			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),1) ) ),
-			dot( SHintensity, imageLoad( AccumulatorLPV, getTextureCoordinatesForGrid(ivec3(lpvCellCoords),2) ) )
+			dot( SHintensity, imageLoad( RAccumulatorLPV, ivec3(lpvCellCoords) ) ),
+			dot( SHintensity, imageLoad( GAccumulatorLPV, ivec3(lpvCellCoords) ) ),
+			dot( SHintensity, imageLoad( BAccumulatorLPV, ivec3(lpvCellCoords) ) )
 		);
 	#endif
 

@@ -792,8 +792,14 @@ void Display() {
 	glActiveTexture(GL_TEXTURE5);
 	glBindTexture(GL_TEXTURE_3D, texManager["BAccumulatorLPV"]);
 #else
-	glUniform1i(basicShader("AccumulatorLPV"), 0);
-	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glUniform1i(basicShader("AccumulatorLPV"), 0);
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("RAccumulatorLPV"), 0);
+	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("GAccumulatorLPV"), 1);
+	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("BAccumulatorLPV"), 2);
+	glBindImageTexture(2, texManager["BccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 #endif
 	
 	glUniform1f(basicShader("f_cellSize"), cellSize);
