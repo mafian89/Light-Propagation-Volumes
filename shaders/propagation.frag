@@ -3,10 +3,14 @@
 #extension GL_NV_shader_atomic_fp16_vector : require
 #extension GL_NV_gpu_shader5 : require
 
-layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
-layout(rgba16f ,location = 1) uniform image3D LightGrid;
-layout(rgba16f ,location = 2) uniform image3D LightGridForNextStep;
-layout(rgba16f ,location = 3) uniform image3D GeometryVolume;
+//layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
+layout(rgba16f ,location = 0) uniform image3D RAccumulatorLPV;
+layout(rgba16f ,location = 1) uniform image3D GAccumulatorLPV;
+layout(rgba16f ,location = 2) uniform image3D BAccumulatorLPV;
+
+layout(rgba16f ,location = 3) uniform image3D LightGrid;
+layout(rgba16f ,location = 4) uniform image3D LightGridForNextStep;
+layout(rgba16f ,location = 5) uniform image3D GeometryVolume;
 layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform bool b_firstPropStep;
@@ -156,16 +160,19 @@ void propagate() {
 	}
 
 	//REWRITE
-	imageAtomicAdd(AccumulatorLPV, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(c.R));
-	imageAtomicAdd(AccumulatorLPV, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(c.G));
-	imageAtomicAdd(AccumulatorLPV, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(c.B));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(c.R));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(c.G));
+	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(c.B));
 }
 
 void main()
 {
 	propagate();
 	//vec4 Rchannel = imageLoad(LightGrid, cellIndex);
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(1.0,0.0,0.0,0.0));
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(0.0,1.0,0.0,0.0));
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(0.0,0.0,1.0,0.0));
+	vec4 R = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0));
+	vec4 G = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1));
+	vec4 B = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2));
+	imageAtomicAdd(RAccumulatorLPV, cellIndex,f16vec4(R));
+	imageAtomicAdd(GAccumulatorLPV, cellIndex,f16vec4(G));
+	imageAtomicAdd(BAccumulatorLPV, cellIndex,f16vec4(B));
 }

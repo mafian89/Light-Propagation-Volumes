@@ -3,10 +3,13 @@
 #extension GL_NV_shader_atomic_fp16_vector : require
 #extension GL_NV_gpu_shader5 : require
 
-//#define USESAMPLER3D
+#define USESAMPLER3D
 
 #ifdef USESAMPLER3D
-	uniform sampler3D AccumulatorLPV;
+	//uniform sampler3D AccumulatorLPV;
+	uniform sampler3D RAccumulatorLPV;
+	uniform sampler3D GAccumulatorLPV;
+	uniform sampler3D BAccumulatorLPV;
 #else
 	layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
 	layout(early_fragment_tests )in;//turn on early depth tests
@@ -69,7 +72,7 @@ void main()
 	vec3 v = normalize(-eyePosition);
 	vec3 r = reflect (-s,tmpNormal); 
 	float sDotN = max(dot(s, tmpNormal),0.0);
-	vec3 diffuse = ld  * sDotN; // * kd
+	vec3 diffuse = ld * kd * sDotN; // * kd
 	vec3 spec = vec3(0.0);
 	if( sDotN > 0.0) {
 	    spec = ls * ks *pow(max(dot(r,v),0.0),8);
@@ -80,12 +83,13 @@ void main()
 
 	vec4 SHintensity = evalSH_direct( -worldNorm );
 	#ifdef USESAMPLER3D
-		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim;
-		lpvCellCoords.y = lpvCellCoords.y / 3.0;
+		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim; //<0,1>
+		//float stepY = lpvCellCoords.y / 3.0;
+		//float diff =  f_cellSize /v_gridDim * 3.0;
 		vec3 lpvIntensity = vec3( 
-			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) ),
-			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) ),
-			dot( SHintensity, texture( AccumulatorLPV, lpvCellCoords ) )
+			dot( SHintensity, texture( RAccumulatorLPV, lpvCellCoords) ),
+			dot( SHintensity, texture( GAccumulatorLPV, lpvCellCoords ) ),
+			dot( SHintensity, texture( BAccumulatorLPV, lpvCellCoords ) )
 		);
 	#else
 		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize;// / v_gridDim;
@@ -96,10 +100,10 @@ void main()
 		);
 	#endif
 
-	vec3 finalLPVRadiance = 1*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
+	vec3 finalLPVRadiance = 1.0*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
 
 	vec3 lightIntesity =  shadow*(ambient + ((finalLPVRadiance*diffuse) + kd) + spec)*att;
-	final_color = vec4(lightIntesity,1.0);
+	final_color = vec4(finalLPVRadiance,1.0);
 
 	normals = vec4(tmpNormal,1.0);
 

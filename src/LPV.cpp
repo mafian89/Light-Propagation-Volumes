@@ -279,7 +279,10 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("vLightPos");
 	basicShader.AddUniform("shadowMatrix");
 	basicShader.AddUniform("depthTexture");
-	basicShader.AddUniform("AccumulatorLPV");
+	//basicShader.AddUniform("AccumulatorLPV");
+	basicShader.AddUniform("RAccumulatorLPV");
+	basicShader.AddUniform("GAccumulatorLPV");
+	basicShader.AddUniform("BAccumulatorLPV");
 	basicShader.AddUniform("f_cellSize");
 	basicShader.AddUniform("v_gridDim");
 	basicShader.AddUniform("v_min");
@@ -350,7 +353,11 @@ void Initialize(SDL_Window * w) {
 #endif
 
 	propagationShader.Use();
-	propagationShader.AddUniform("AccumulatorLPV");
+	//propagationShader.AddUniform("AccumulatorLPV");
+	propagationShader.AddUniform("RAccumulatorLPV");
+	propagationShader.AddUniform("GAccumulatorLPV");
+	propagationShader.AddUniform("BAccumulatorLPV");
+	propagationShader.AddUniform("GeometryVolume");
 	propagationShader.AddUniform("LightGridForNextStep");
 	propagationShader.AddUniform("LightGrid");
 	propagationShader.AddUniform("b_firstPropStep");
@@ -405,7 +412,10 @@ void Initialize(SDL_Window * w) {
 	texManager.createRGBA16F3DTexture("LightGrid", editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #endif
 	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("AccumulatorLPV", editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	//texManager.createRGBA16F3DTexture("AccumulatorLPV", editedVolumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("RAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("GAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("BAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
 
 	initPropStepTextures();
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -687,26 +697,52 @@ void Display() {
 
 	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
-	texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
+	//texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+	texManager.clear3Dtexture(propTextures[1]);
 
-	for (int i = 0; i < PROPAGATION_STEPS; i++) {
-		glUniform1i(propagationShader("AccumulatorLPV"), 0);
-		glUniform1i(propagationShader("LightGrid"), 1);
-		glUniform1i(propagationShader("LightGridForNextStep"), 2);
+	//for (int i = 0; i < PROPAGATION_STEPS; i++) {
+		//glUniform1i(propagationShader("AccumulatorLPV"), 0);
+		glUniform1i(propagationShader("RAccumulatorLPV"), 0);
+		glUniform1i(propagationShader("GAccumulatorLPV"), 1);
+		glUniform1i(propagationShader("BAccumulatorLPV"), 2);
+
+		glUniform1i(propagationShader("LightGrid"), 3);
+		glUniform1i(propagationShader("LightGridForNextStep"), 4);
+		glUniform1i(propagationShader("GeometryVolume"), 5);
 		glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
 		glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
-		glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
-		glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(3, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		/*if ((i % 2) == 0) {
+			glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		}
+		else {
+			glBindImageTexture(1, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(2, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		}*/
+		//glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		//glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		//glBindImageTexture(3, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 
-		texManager.clear3Dtexture(propTextures[1]);
+		glBindImageTexture(3, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(4, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+		//if (i > 0)
+			//texManager.clear3Dtexture(propTextures[1]); //i%2
 
 		glBindVertexArray(PropagationVAO);
 		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
 		glBindVertexArray(0);
-	}
+	//}
+	test = false;
 	propagationShader.UnUse();
 
 	//if (test) {
@@ -743,9 +779,18 @@ void Display() {
 	basicShader.AddUniform("v_min");
 	*/
 #ifdef USESAMPLER3D
-	glUniform1i(basicShader("AccumulatorLPV"), 3);
+	//glUniform1i(basicShader("AccumulatorLPV"), 3);
+	//glActiveTexture(GL_TEXTURE3);
+	//glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+	glUniform1i(basicShader("RAccumulatorLPV"), 3);
 	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+	glBindTexture(GL_TEXTURE_3D, texManager["RAccumulatorLPV"]);
+	glUniform1i(basicShader("GAccumulatorLPV"), 4);
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_3D, texManager["GAccumulatorLPV"]);
+	glUniform1i(basicShader("BAccumulatorLPV"), 5);
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_3D, texManager["BAccumulatorLPV"]);
 #else
 	glUniform1i(basicShader("AccumulatorLPV"), 0);
 	glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
