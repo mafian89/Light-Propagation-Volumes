@@ -17,6 +17,7 @@
     <ClCompile Include="..\src\CTextureViewer.cpp" />
     <ClCompile Include="..\src\DebugDrawer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
+    <ClCompile Include="..\src\GBuffer.cpp" />
     <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
@@ -31,6 +32,7 @@
     <ClInclude Include="..\src\CTextureViewer.h" />
     <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
+    <ClInclude Include="..\src\GBuffer.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
@@ -45,6 +47,8 @@
     <None Include="..\shaders\debugVPLs.vs" />
     <None Include="..\shaders\depthOnly.frag" />
     <None Include="..\shaders\depthOnly.vs" />
+    <None Include="..\shaders\gbufferFill.frag" />
+    <None Include="..\shaders\gbufferFill.vs" />
     <None Include="..\shaders\geometryInject.frag" />
     <None Include="..\shaders\geometryInject.vs" />
     <None Include="..\shaders\lightInject.frag" />
@@ -53,6 +57,8 @@
     <None Include="..\shaders\lightInject_layered.frag" />
     <None Include="..\shaders\lightInject_layered.gs" />
     <None Include="..\shaders\lightInject_layered.vs" />
+    <None Include="..\shaders\propagation.frag" />
+    <None Include="..\shaders\propagation.vs" />
     <None Include="..\shaders\RSMpass.frag" />
     <None Include="..\shaders\RSMpass.vs" />
     <None Include="..\shaders\textureViewer.frag" />

@@ -28,8 +28,9 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, VPLsDebug, geometryInject, gBufferShader, propagationShader;
 Mesh * mesh;
+GBuffer * gBuffer;
 float movementSpeed = 10.0f;
 float ftime;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
@@ -42,12 +43,17 @@ CLightObject * light;
 DebugDrawer * dd;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
-GLuint VPLsVAO, VPLsVBO;
-glm::vec3 volumeDimensions,vMin;
+GLuint VPLsVAO, VPLsVBO, PropagationVAO, PropagationVBO;
+glm::vec3 volumeDimensions, vMin, editedVolumeDimensions;
 float cellSize;
-float f_tanLightFovXHalf;
-float f_tanLightFovYHalf;
-float f_weightModifier = 20.0f; //Arbitrary value
+float f_tanFovXHalf;
+float f_tanFovYHalf;
+float f_texelAreaModifier = 10.0f; //Arbitrary value
+bool b_useNormalOffset = false;
+bool b_firstPropStep = true;
+GLuint propTextures[PROPAGATION_STEPS + 1];
+int volumeDimensionsMult;
+bool useMultiStepPropagation = false;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -94,15 +100,88 @@ void initializeVPLsInvocations() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(0);
-	
+
 	injectLight.UnUse();
 
 	//Free memory
 	delete testPoints;
 }
 
+typedef struct pi {
+	float r, c, d;
+} PROP_ITEM;
+
+void initializePropagationVAO(glm::vec3 volumeDimensions) {
+	propagationShader.Use();
+
+	//Generate VAO
+	glGenVertexArrays(1, &PropagationVAO);
+
+	//Bind VAO
+	glBindVertexArray(PropagationVAO);
+
+	//Generate VBO
+	glGenBuffers(1, &PropagationVBO);
+	//Bind VBO
+	glBindBuffer(GL_ARRAY_BUFFER, PropagationVBO);
+
+	volumeDimensionsMult = volumeDimensions.x * volumeDimensions.y * volumeDimensions.z;
+	int x = volumeDimensions.x, y = volumeDimensions.y, z = volumeDimensions.z;
+	/*float *testPoints = new float[3 * count];
+	for (int i = 0; i < count; ++i) {
+		testPoints[i * 3] = 0.0f;
+		testPoints[i * 3 + 1] = 0.0f;
+		testPoints[i * 3 + 2] = 0.0f;
+	}*/
+
+	std::vector<glm::vec3> coords;
+	for (int d = 0; d < z; d++) {
+		for (int c = 0; c < y; c++) {
+			for (int r = 0; r < x; r++) {
+				coords.push_back(glm::vec3((float)r, (float)c, (float)d));
+			}
+		}
+	}
+
+	//std::cout << coords.size() * 3 * sizeof(float) << std::endl;
+	//std::cout << coords.size() * sizeof(glm::vec3) << std::endl;
+
+	//Alocate buffer
+	glBufferData(GL_ARRAY_BUFFER, coords.size() * 3 * sizeof(float), &coords.front(), GL_STATIC_DRAW);
+	//Fill VBO
+	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testPoints), testPoints);
+
+	//Fill attributes and uniforms
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, (sizeof(float)* 3), (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
+
+	propagationShader.UnUse();
+	//delete testPoints;
+
+	/*for (int i = 0; i < coords.size(); i++) {
+		std::cout << coords[i].x << " " << coords[i].y << " " << coords[i].z << std::endl;
+	}*/
+	//delete tmp;
+}
+
+//This function *MUST* be called after creation of LightGrid texture
+void initPropStepTextures() {
+	propTextures[0] = texManager["LightGrid"];
+	for (int i = 1; i < PROPAGATION_STEPS + 1; i++) {
+		string texName = "LPVStep" + std::to_string(i);
+		//std::cout << texName << std::endl;
+		texManager.createRGBA16F3DTexture(texName, editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+		propTextures[i] = texManager[texName];
+	}
+}
+
 void Initialize(SDL_Window * w) {
-	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+	//glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
 	//std::cout << "Max color attachments: " << max_color_attachments << std::endl;
 	//tex = loadImage("../textures/texture.png");
@@ -147,6 +226,16 @@ void Initialize(SDL_Window * w) {
 	shadowMap.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/depthOnly.vs").c_str());
 	shadowMap.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/depthOnly.frag").c_str());
 	shadowMap.CreateAndLinkProgram();
+
+	gBufferShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/gbufferFill.vs").c_str());
+	gBufferShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/gbufferFill.frag").c_str());
+	gBufferShader.CreateAndLinkProgram();
+
+
+	propagationShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation.vs").c_str());
+	propagationShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation.frag").c_str());
+	propagationShader.CreateAndLinkProgram();
+
 #ifdef LAYERED_FILL
 	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
 	injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
@@ -191,6 +280,13 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("vLightPos");
 	basicShader.AddUniform("shadowMatrix");
 	basicShader.AddUniform("depthTexture");
+	//basicShader.AddUniform("AccumulatorLPV");
+	basicShader.AddUniform("RAccumulatorLPV");
+	basicShader.AddUniform("GAccumulatorLPV");
+	basicShader.AddUniform("BAccumulatorLPV");
+	basicShader.AddUniform("f_cellSize");
+	basicShader.AddUniform("v_gridDim");
+	basicShader.AddUniform("v_min");
 	basicShader.UnUse();
 
 	rsmShader.Use();
@@ -204,11 +300,23 @@ void Initialize(SDL_Window * w) {
 	shadowMap.Use();
 	shadowMap.AddUniform("mvp");
 	shadowMap.UnUse();
+
+	gBufferShader.Use();
+	gBufferShader.AddUniform("mvp");
+	gBufferShader.AddUniform("mn");
+	gBufferShader.AddUniform("mv");
+	gBufferShader.AddUniform("colorTex");
+	gBufferShader.UnUse();
+
 #ifndef LAYERED_FILL
 	injectLight.Use();
+#ifdef ALLCHANNELTEXTURE
+	injectLight.AddUniform("LightGrid");
+#else
 	injectLight.AddUniform("LPVGridR");
 	injectLight.AddUniform("LPVGridG");
 	injectLight.AddUniform("LPVGridB");
+#endif
 	injectLight.AddUniform("v_gridDim");
 	injectLight.AddUniform("f_cellSize");
 	injectLight.AddUniform("v_min");
@@ -228,19 +336,34 @@ void Initialize(SDL_Window * w) {
 	geometryInject.AddUniform("rsm_world_space_coords_tex");
 	geometryInject.AddUniform("rsm_normal_tex");
 	geometryInject.AddUniform("rsm_flux_tex");
-	geometryInject.AddUniform("f_tanLightFovXHalf");
-	geometryInject.AddUniform("f_tanLightFovYHalf");
+	geometryInject.AddUniform("f_tanFovXHalf");
+	geometryInject.AddUniform("f_tanFovYHalf");
 	geometryInject.AddUniform("v_lightPos");
 	geometryInject.AddUniform("m_lightView");
+	geometryInject.AddUniform("f_texelAreaModifier");
 	geometryInject.UnUse();
 
 #ifdef VPL_DEBUG
 	VPLsDebug.Use();
 	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("rsm_normal_tex");
 	VPLsDebug.AddUniform("mvp");
 	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.AddUniform("b_useNormalOffset");
 	VPLsDebug.UnUse();
 #endif
+
+	propagationShader.Use();
+	//propagationShader.AddUniform("AccumulatorLPV");
+	propagationShader.AddUniform("RAccumulatorLPV");
+	propagationShader.AddUniform("GAccumulatorLPV");
+	propagationShader.AddUniform("BAccumulatorLPV");
+	propagationShader.AddUniform("GeometryVolume");
+	propagationShader.AddUniform("LightGridForNextStep");
+	propagationShader.AddUniform("LightGrid");
+	propagationShader.AddUniform("b_firstPropStep");
+	propagationShader.AddUniform("v_gridDim");
+	propagationShader.UnUse();
 
 
 	////////////////////////////////////////////////////
@@ -249,14 +372,24 @@ void Initialize(SDL_Window * w) {
 	mesh = new Mesh("../models/sponza.obj");
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
 	volumeDimensions = mesh->getBoundingBox()->getDimensions();
+	editedVolumeDimensions = glm::vec3(volumeDimensions.x, volumeDimensions.y * 3, volumeDimensions.z);
 	cellSize = mesh->getBoundingBox()->getCellSize();
+	std::cout << "Grid size: " << volumeDimensions.x << "x" << volumeDimensions.y << "x" << volumeDimensions.z << " cell size: " << cellSize << std::endl;
 	vMin = mesh->getBoundingBox()->getMin();
 	initializeVPLsInvocations();
-	float f_lightFov = light->getFov(); //in degrees, one must convert to radians
-	float f_lightAspect = light->getAspectRatio(); 
+	initializePropagationVAO(volumeDimensions);
 
-	f_tanLightFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
-	f_tanLightFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
+	float f_lightFov = light->getFov(); //in degrees, one must convert to radians
+	float f_lightAspect = light->getAspectRatio();
+
+	f_tanFovXHalf = tanf(0.5 * f_lightFov * DEG2RAD);
+	f_tanFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
+
+	gBuffer = new GBuffer(*(&texManager), WIDTH, HEIGHT);
+
+
+	//glm::vec3 o = (glm::vec3(11.7542, 14.1148, 0.822185) - vMin) / cellSize;
+	//std::cout << o.x << " " << o.y << " " << o.z << std::endl;
 	//std::vector<glm::vec3> p;
 	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
 	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
@@ -272,10 +405,20 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+#ifndef ALLCHANNELTEXTURE
 	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridB", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#else
+	texManager.createRGBA16F3DTexture("LightGrid", editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+#endif
 	texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+	//texManager.createRGBA16F3DTexture("AccumulatorLPV", editedVolumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("RAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("GAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+	texManager.createRGBA16F3DTexture("BAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+
+	initPropStepTextures();
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 #ifdef LAYERED_FILL
 	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -381,6 +524,21 @@ void Display() {
 	glm::vec3 lightPosition = light->getPosition();
 
 	////////////////////////////////////////////////////
+	// FILL THE G-BUFFER
+	////////////////////////////////////////////////////
+	/*gBuffer->bindToRender();
+	glViewport(0, 0, WIDTH, HEIGHT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gBufferShader.Use();
+	glUniform1i(gBufferShader("colorTex"), 0);
+	glUniformMatrix4fv(gBufferShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(gBufferShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+	glUniformMatrix3fv(gBufferShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+	mesh->render();
+	gBufferShader.UnUse();
+	gBuffer->unbind();*/
+	
+	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
 	//glEnable(GL_CULL_FACE);
@@ -399,6 +557,7 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
+	//glDisable(GL_CULL_FACE);
 
 	////////////////////////////////////////////////////
 	// RSM
@@ -419,57 +578,10 @@ void Display() {
 
 
 
-	////////////////////////////////////////////////////
-	// RENDER SCENE TO TEXTURE
-	////////////////////////////////////////////////////
-	glDisable(GL_CULL_FACE);
-	//glCullFace(GL_BACK);
-	glViewport(0, 0, WIDTH, HEIGHT);
-	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	basicShader.Use();
-	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
-	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
-	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
-	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
-	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
-	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
-	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
-	mesh->render();
-	glBindTexture(GL_TEXTURE_2D, 0);
-	basicShader.UnUse();
-
-	dd->setVPMatrix(mvp);
-	dd->draw();
-
-	////////////////////////////////////////////////////
-	// VPL DEBUG DRAW
-	////////////////////////////////////////////////////
-#ifdef VPL_DEBUG
-	glEnable(GL_PROGRAM_POINT_SIZE);
-	glPointSize(2.5f);
-	VPLsDebug.Use();
-	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
-	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-	glBindVertexArray(VPLsVAO);
-	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-	glBindVertexArray(0);
-	VPLsDebug.UnUse();
-	glDisable(GL_PROGRAM_POINT_SIZE);
-#endif
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 #ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
-	glViewport(0, 0,volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -493,13 +605,21 @@ void Display() {
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	injectLight.Use();
+
+#ifdef ALLCHANNELTEXTURE
+	texManager.clear3Dtexture(texManager["LightGrid"]);
+	glUniform1i(injectLight("LightGrid"), 0);
+#else
 	texManager.clear3Dtexture(texManager["LPVGridR"], volumeDimensions);
 	texManager.clear3Dtexture(texManager["LPVGridG"], volumeDimensions);
 	texManager.clear3Dtexture(texManager["LPVGridB"], volumeDimensions);
-	injectLight.Use();
+
 	glUniform1i(injectLight("LPVGridR"), 0);
 	glUniform1i(injectLight("LPVGridG"), 1);
 	glUniform1i(injectLight("LPVGridB"), 2);
+#endif
 	glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
 	glUniform1i(injectLight("rsm_normal_tex"), 1);
 	glUniform1i(injectLight("rsm_flux_tex"), 2);
@@ -513,13 +633,19 @@ void Display() {
 	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+#ifdef ALLCHANNELTEXTURE
+	glBindImageTexture(0, texManager["LightGrid"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+#else
 	glBindImageTexture(0, texManager["LPVGridR"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(1, texManager["LPVGridG"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glBindImageTexture(2, texManager["LPVGridB"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+#endif
 	glBindVertexArray(VPLsVAO);
 	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
 	glBindVertexArray(0);
 	injectLight.UnUse();
+
+	//propTextures[0] = texManager["LightGrid"];
 
 	////////////////////////////////////////////////////
 	// GEOMETRY INJECT
@@ -528,19 +654,21 @@ void Display() {
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	texManager.clear3Dtexture(texManager["GeometryVolume"], volumeDimensions);
+	texManager.clear3Dtexture(texManager["GeometryVolume"]);
 	geometryInject.Use();
 	glUniform1i(geometryInject("GeometryVolume"), 0);
 	glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
 	glUniform1i(geometryInject("rsm_normal_tex"), 1);
 	glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
 	glUniform1f(geometryInject("f_cellSize"), cellSize);
-	glUniform1f(geometryInject("f_tanLightFovXHalf"), f_tanLightFovXHalf);
-	glUniform1f(geometryInject("f_tanLightFovYHalf"), f_tanLightFovYHalf);
+	glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
+	glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
+	glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
 	glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 	glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
 	glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
 	glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+	//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
 	glActiveTexture(GL_TEXTURE1);
@@ -559,6 +687,169 @@ void Display() {
 
 #endif
 	
+	////////////////////////////////////////////////////
+	// LIGHT PROPAGATION
+	////////////////////////////////////////////////////
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	propagationShader.Use();
+
+	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
+	//texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+	//texManager.clear3Dtexture(propTextures[1]);
+
+	glUniform1i(propagationShader("RAccumulatorLPV"), 0);
+	glUniform1i(propagationShader("GAccumulatorLPV"), 1);
+	glUniform1i(propagationShader("BAccumulatorLPV"), 2);
+
+	glUniform1i(propagationShader("LightGrid"), 3);
+	glUniform1i(propagationShader("LightGridForNextStep"), 4);
+	glUniform1i(propagationShader("GeometryVolume"), 5);
+	glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+	if (useMultiStepPropagation) {
+		for (int i = 0; i < PROPAGATION_STEPS; i++) {
+			//glUniform1i(propagationShader("AccumulatorLPV"), 0);
+			glBindImageTexture(3, propTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(4, propTextures[i + 1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+			glBindVertexArray(PropagationVAO);
+			glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+			glBindVertexArray(0);
+		}
+
+		for (int j = 1; j < PROPAGATION_STEPS + 1; j++) {
+			texManager.clear3Dtexture(propTextures[j]);
+		}
+	}
+	else {
+		glBindImageTexture(3, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(4, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+		glBindVertexArray(PropagationVAO);
+		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+		glBindVertexArray(0);
+
+		texManager.clear3Dtexture(propTextures[1]);
+	}
+	test = false;
+	propagationShader.UnUse();
+
+	//if (test) {
+	//	//cout << volumeDimensionsMult << endl;
+	//	int ll = editedVolumeDimensions.x * editedVolumeDimensions.y * editedVolumeDimensions.z;
+	//	float *data = new float[ll * 4];
+	//	for (unsigned i = 0; i < ll * 4; ++i)data[i] = 0.;
+	//	glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+	//	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
+	//	for (unsigned i = 0; i < ll * 4; ++i) {
+	//		if (data[i] > 0.0)
+	//			std::cerr << i << " " << data[i] << std::endl;
+	//	}
+
+	//	delete data;
+	//	test = false;
+	//}
+
+	
+	////////////////////////////////////////////////////
+	// RENDER SCENE TO TEXTURE
+	////////////////////////////////////////////////////
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	//glCullFace(GL_BACK);
+	glViewport(0, 0, WIDTH, HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	basicShader.Use();
+	/*
+	basicShader.AddUniform("AccumulatorLPV");
+	basicShader.AddUniform("f_cellSize");
+	basicShader.AddUniform("v_gridDim");
+	basicShader.AddUniform("v_min");
+	*/
+#ifdef USESAMPLER3D
+	//glUniform1i(basicShader("AccumulatorLPV"), 3);
+	//glActiveTexture(GL_TEXTURE3);
+	//glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
+	glUniform1i(basicShader("RAccumulatorLPV"), 3);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_3D, texManager["RAccumulatorLPV"]);
+	glUniform1i(basicShader("GAccumulatorLPV"), 4);
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_3D, texManager["GAccumulatorLPV"]);
+	glUniform1i(basicShader("BAccumulatorLPV"), 5);
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_3D, texManager["BAccumulatorLPV"]);
+#else
+	//glUniform1i(basicShader("AccumulatorLPV"), 0);
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("RAccumulatorLPV"), 0);
+	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("GAccumulatorLPV"), 1);
+	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glUniform1i(basicShader("BAccumulatorLPV"), 2);
+	glBindImageTexture(2, texManager["BccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+#endif
+	
+	glUniform1f(basicShader("f_cellSize"), cellSize);
+	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(basicShader("v_min"), vMin.x, vMin.y, vMin.z);
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
+	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
+	glUniformMatrix4fv(basicShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(basicShader("mv"), 1, GL_FALSE, glm::value_ptr(mv));
+	glUniformMatrix4fv(basicShader("v"), 1, GL_FALSE, glm::value_ptr(v));
+	glUniformMatrix4fv(basicShader("shadowMatrix"), 1, GL_FALSE, glm::value_ptr(biasMatrix*mvp_light));
+	glUniformMatrix3fv(basicShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
+	glUniform3f(basicShader("vLightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_depth_tex"]);
+	mesh->render();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	basicShader.UnUse();
+
+	dd->setVPMatrix(mvp);
+	dd->draw();
+	////////////////////////////////////////////////////
+	// VPL DEBUG DRAW
+	////////////////////////////////////////////////////
+#ifdef VPL_DEBUG
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	glPointSize(2.5f);
+	VPLsDebug.Use();
+	glUniformMatrix4fv(VPLsDebug("mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniform1i(VPLsDebug("i_RSMsize"), RSMSIZE);
+	glUniform1i(VPLsDebug("rsm_world_space_coords_tex"), 0);
+	glUniform1i(VPLsDebug("rsm_normal_tex"), 1);
+	glUniform1i(VPLsDebug("b_useNormalOffset"), b_useNormalOffset);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glBindVertexArray(VPLsVAO);
+	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+	glBindVertexArray(0);
+	VPLsDebug.UnUse();
+	glDisable(GL_PROGRAM_POINT_SIZE);
+#endif
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	////////////////////////////////////////////////////
 	// FINAL COMPOSITION
 	////////////////////////////////////////////////////
@@ -593,6 +884,7 @@ void Finalize(void) {
 	delete RSMFboManager;
 	delete light;
 	delete dd;
+	delete gBuffer;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -695,7 +987,7 @@ int main() {
 		std::cout << "Status: Using GLEW " << glewGetString(GLEW_VERSION) << std::endl;
 	}
 
-	
+
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
 
@@ -748,6 +1040,12 @@ int main() {
 					controlCamera->computeMatricesFromInputs();
 					controlCamera->moved = false;
 				}
+			}
+
+			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+				if (event.key.keysym.sym == SDLK_p)
+					useMultiStepPropagation = !useMultiStepPropagation;
+				// ... handle other keys
 			}
 		}
 		old_time = current_time;
@@ -854,7 +1152,9 @@ int main() {
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-	//SDL_DestroyWindow(w2);
+#ifdef W2
+	SDL_DestroyWindow(w2);
+#endif
 
 	SDL_Quit();
 

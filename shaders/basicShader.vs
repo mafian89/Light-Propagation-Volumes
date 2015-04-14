@@ -8,6 +8,7 @@ layout(location = 2) in vec3 vNormal;
 out vec3 eyePosition,eyeNormal,eyeLightPos;
 out vec2 uv;
 out vec4 shadowCoord;
+out vec3 worldPos, worldNorm;
 
 uniform mat4 mvp;
 uniform mat3 mn;
@@ -21,6 +22,8 @@ void main()
 	gl_Position = mvp * vec4(vPosition,1.0);
 	eyePosition = (mv*vec4(vPosition,1)).xyz;
 	eyeNormal = normalize(mn*vNormal);
+	worldNorm = normalize(vNormal);
+	worldPos = vPosition;
 	eyeLightPos = (v*vec4(vLightPos,1)).xyz;
 	uv = vUv;
 	shadowCoord = (shadowMatrix * vec4(vPosition,1.0));

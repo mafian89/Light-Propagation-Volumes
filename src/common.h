@@ -21,6 +21,7 @@
 #include "texUtils.h"
 #include "CBoundingBox.h"
 #include "DebugDrawer.h"
+#include "GBuffer.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
@@ -39,6 +40,9 @@
 #define VPL_COUNT RSMSIZE*RSMSIZE
 #define DEG2RAD (M_PI / 180.0f)
 
-#define VPL_DEBUG
-//#define ORTHO_PROJECTION
+//#define VPL_DEBUG
+#define ORTHO_PROJECTION
+#define ALLCHANNELTEXTURE
+#define USESAMPLER3D
+#define PROPAGATION_STEPS 12
 //#define LAYERED_FILL

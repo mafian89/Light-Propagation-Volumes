@@ -25,6 +25,7 @@ in float surfelArea;
 
 //Should I normalize the dir vector?
 vec4 evalCosineLobeToDir(vec3 dir) {
+	dir = normalize(dir);
 	//f00, f-11, f01, f11
 	return vec4( SH_cosLobe_C0, -SH_cosLobe_C1 * dir.y, SH_cosLobe_C1 * dir.z, -SH_cosLobe_C1 * dir.x );
 }
@@ -48,7 +49,8 @@ void main()
 	float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
 
 	vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * blockingPotencial;
-
+	//surfelArea
+	//vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * surfelArea;
 
 	imageAtomicAdd(GeometryVolume,v_volumeCellIndex,f16vec4(SHCoeffGV));
 
