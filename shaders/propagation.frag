@@ -17,8 +17,11 @@ uniform bool b_firstPropStep;
 uniform vec3 v_gridDim; //Resolution of the grid
 flat in ivec3 cellIndex;
 
-const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
-const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
+//const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
+//const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
+
+#define directFaceSubtendedSolidAngle 0.12753712
+#define sideFaceSubtendedSolidAngle 0.13478556
 
 #define PI 3.1415926f
 
@@ -124,7 +127,10 @@ void propagate() {
 
 		float occlusionValue = 1.0; // no occlusion
 		//TODO: Occlusion!!!!
-		vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
+		//No occlusion for the first step
+		if(!b_firstPropStep) {
+			vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
+		}
 
 		float occludedDirectFaceContribution = occlusionValue * directFaceSubtendedSolidAngle;
 
@@ -135,7 +141,7 @@ void propagate() {
 		c.B += occludedDirectFaceContribution * dot( BSHcoeffsNeighbour, mainDirectionSH ) * mainDirectionCosineLobeSH;
 
 		//Now we have contribution for the neighbour's cell in the main direction -> need to do reprojection 
-		//Reprojection will be made only onto 4 faces (acctually we need to take into account 5 faces but we already have the one in main direction)
+		//Reprojection will be made only onto 4 faces (acctually we need to take into account 5 faces but we already have the one in the main direction)
 
 		for(int face = 0; face < 4; face++) {
 			//Get the direction to the face
@@ -144,7 +150,10 @@ void propagate() {
 			vec3 reprojDirection = getReprojSideDirection( face, mainDirection );
 
 			//TODO: Occlusion!!!!
-			vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
+			//No occlusion for the first step
+			if(!b_firstPropStep) {
+				vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
+			}
 
 			float occludedSideFaceContribution = occlusionValue * sideFaceSubtendedSolidAngle;
 			
@@ -159,7 +168,7 @@ void propagate() {
 		}
 	}
 
-	//REWRITE
+	//Save the contribution for the next iteration
 	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(c.R));
 	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(c.G));
 	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(c.B));

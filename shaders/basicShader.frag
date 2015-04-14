@@ -87,8 +87,6 @@ void main()
 	vec4 SHintensity = evalSH_direct( -worldNorm );
 	#ifdef USESAMPLER3D
 		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim; //<0,1>
-		//float stepY = lpvCellCoords.y / 3.0;
-		//float diff =  f_cellSize /v_gridDim * 3.0;
 		vec3 lpvIntensity = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV, lpvCellCoords) ),
 			dot( SHintensity, texture( GAccumulatorLPV, lpvCellCoords ) ),
@@ -103,7 +101,7 @@ void main()
 		);
 	#endif
 
-	vec3 finalLPVRadiance = 1.0*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
+	vec3 finalLPVRadiance = 0.1*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
 
 	vec3 lightIntesity =  shadow*(ambient + ((finalLPVRadiance*diffuse) + kd) + spec)*att;
 	final_color = vec4(finalLPVRadiance,1.0);

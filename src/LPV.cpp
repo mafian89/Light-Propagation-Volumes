@@ -51,8 +51,9 @@ float f_tanFovYHalf;
 float f_texelAreaModifier = 10.0f; //Arbitrary value
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
-GLuint propTextures[PROPAGATION_STEPS];
+GLuint propTextures[PROPAGATION_STEPS + 1];
 int volumeDimensionsMult;
+bool useMultiStepPropagation = false;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -170,7 +171,7 @@ void initializePropagationVAO(glm::vec3 volumeDimensions) {
 //This function *MUST* be called after creation of LightGrid texture
 void initPropStepTextures() {
 	propTextures[0] = texManager["LightGrid"];
-	for (int i = 1; i < PROPAGATION_STEPS; i++) {
+	for (int i = 1; i < PROPAGATION_STEPS + 1; i++) {
 		string texName = "LPVStep" + std::to_string(i);
 		//std::cout << texName << std::endl;
 		texManager.createRGBA16F3DTexture(texName, editedVolumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -701,47 +702,49 @@ void Display() {
 	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
 	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
 	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
-	texManager.clear3Dtexture(propTextures[1]);
+	//texManager.clear3Dtexture(propTextures[1]);
 
-	//for (int i = 0; i < PROPAGATION_STEPS; i++) {
-		//glUniform1i(propagationShader("AccumulatorLPV"), 0);
-		glUniform1i(propagationShader("RAccumulatorLPV"), 0);
-		glUniform1i(propagationShader("GAccumulatorLPV"), 1);
-		glUniform1i(propagationShader("BAccumulatorLPV"), 2);
+	glUniform1i(propagationShader("RAccumulatorLPV"), 0);
+	glUniform1i(propagationShader("GAccumulatorLPV"), 1);
+	glUniform1i(propagationShader("BAccumulatorLPV"), 2);
 
-		glUniform1i(propagationShader("LightGrid"), 3);
-		glUniform1i(propagationShader("LightGridForNextStep"), 4);
-		glUniform1i(propagationShader("GeometryVolume"), 5);
-		glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
-		glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform1i(propagationShader("LightGrid"), 3);
+	glUniform1i(propagationShader("LightGridForNextStep"), 4);
+	glUniform1i(propagationShader("GeometryVolume"), 5);
+	glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
-		//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		/*if ((i % 2) == 0) {
-			glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+	if (useMultiStepPropagation) {
+		for (int i = 0; i < PROPAGATION_STEPS; i++) {
+			//glUniform1i(propagationShader("AccumulatorLPV"), 0);
+			glBindImageTexture(3, propTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(4, propTextures[i + 1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+			glBindVertexArray(PropagationVAO);
+			glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+			glBindVertexArray(0);
 		}
-		else {
-			glBindImageTexture(1, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(2, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		}*/
-		//glBindImageTexture(1, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		//glBindImageTexture(2, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		//glBindImageTexture(3, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 
+		for (int j = 1; j < PROPAGATION_STEPS + 1; j++) {
+			texManager.clear3Dtexture(propTextures[j]);
+		}
+	}
+	else {
 		glBindImageTexture(3, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 		glBindImageTexture(4, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-
-		//if (i > 0)
-			//texManager.clear3Dtexture(propTextures[1]); //i%2
 
 		glBindVertexArray(PropagationVAO);
 		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
 		glBindVertexArray(0);
-	//}
+
+		texManager.clear3Dtexture(propTextures[1]);
+	}
 	test = false;
 	propagationShader.UnUse();
 
@@ -1037,6 +1040,12 @@ int main() {
 					controlCamera->computeMatricesFromInputs();
 					controlCamera->moved = false;
 				}
+			}
+
+			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+				if (event.key.keysym.sym == SDLK_p)
+					useMultiStepPropagation = !useMultiStepPropagation;
+				// ... handle other keys
 			}
 		}
 		old_time = current_time;
