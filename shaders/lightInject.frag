@@ -17,7 +17,7 @@
 // SH_C0 * SH_cosLobe_C0 = 0.25000000007f
 // SH_C1 * SH_cosLobe_C1 = 0.5000000011f
 
-#define ALLCHANNELTEXTURE
+//#define ALLCHANNELTEXTURE
 
 #ifdef ALLCHANNELTEXTURE
 layout(rgba16f ,location = 0) uniform image3D LightGrid;
@@ -47,9 +47,9 @@ void main()
 {
 
 	//Discard pixels with really small normal
-	if( length( v_normalFromRSM ) < 0.01 ) {
+	/*if( length( v_normalFromRSM ) < 0.01 ) {
 		discard;
-	}
+	}*/
 
 	vec4 SHCoeffsR = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.r;
 	vec4 SHCoeffsG = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.g;

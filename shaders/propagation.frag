@@ -8,10 +8,21 @@ layout(rgba16f ,location = 0) uniform image3D RAccumulatorLPV;
 layout(rgba16f ,location = 1) uniform image3D GAccumulatorLPV;
 layout(rgba16f ,location = 2) uniform image3D BAccumulatorLPV;
 
-layout(rgba16f ,location = 3) uniform image3D LightGrid;
-layout(rgba16f ,location = 4) uniform image3D LightGridForNextStep;
-layout(rgba16f ,location = 5) uniform image3D GeometryVolume;
+//layout(rgba16f ,location = 3) uniform image3D LightGrid;
+//layout(rgba16f ,location = 4) uniform image3D LightGridForNextStep;
+
+//layout(rgba16f ,location = 5) uniform image3D GeometryVolume;
 layout(early_fragment_tests )in;//turn on early depth tests
+
+uniform sampler3D GeometryVolume;
+
+//Rewrite to this:
+uniform sampler3D LPVGridR;
+uniform sampler3D LPVGridG;
+uniform sampler3D LPVGridB;
+layout(rgba16f ,location = 3) uniform image3D RLightGridForNextStep;
+layout(rgba16f ,location = 4) uniform image3D GLightGridForNextStep;
+layout(rgba16f ,location = 5) uniform image3D BLightGridForNextStep;
 
 uniform bool b_firstPropStep;
 uniform vec3 v_gridDim; //Resolution of the grid
@@ -20,8 +31,9 @@ flat in ivec3 cellIndex;
 //const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
 //const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
 
-#define directFaceSubtendedSolidAngle 0.12753712
-#define sideFaceSubtendedSolidAngle 0.13478556
+const float directFaceSubtendedSolidAngle = 0.12753712; // 0.4006696846f / Pi;
+const float sideFaceSubtendedSolidAngle = 0.13478556; // 0.4234413544f / Pi;
+
 
 #define PI 3.1415926f
 
@@ -46,7 +58,11 @@ vec4 evalCosineLobeToDir_direct( vec3 direction ) {
 	return vec4( SH_cosLobe_C0, -SH_cosLobe_C1 * direction.y, SH_cosLobe_C1 * direction.z, -SH_cosLobe_C1 * direction.x );
 }
 
+float innerProduct(vec4 sh1, vec4 sh2) {
+	return sh1.x*sh2.x + sh1.y*sh2.y + sh1.z*sh2.z + sh1.w*sh2.w; 
+}
 
+/*
 bool isInside(ivec3 i) {
 	if(i.x < 0 || i.x > int(v_gridDim.x))
 		return false;
@@ -55,7 +71,7 @@ bool isInside(ivec3 i) {
 	if(i.z < 0 || i.z > int(v_gridDim.z))
 		return false;
 	return true;
-}
+}*/
 
 const ivec3 propDirections[6] = {
 	//+Z
@@ -102,6 +118,8 @@ struct contribution {
 	vec4 R,G,B;
 };
 
+float occlusionAmplifier = 1.0f;
+
 void propagate() {
 	contribution c;
 	c.R = vec4(0.0);
@@ -116,29 +134,34 @@ void propagate() {
 		ivec3 mainDirection = propDirections[neighbour]; 
 		//get neighbour cell indexindex
 		ivec3 neighbourCellIndex = cellIndex - mainDirection;
-		//Load sh coeffs - CHECK THIS ONCE AGAIN!!!
-		//if(isInside(neighbourCellIndex)) {
+		//Load sh coeffs
+		#ifdef ALLCHANNELTEXTURE
 			RSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 0));
 			GSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 1));
 			BSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 2));
-		/*}else{
-			break;
-		}*/
+		#else
+			RSHcoeffsNeighbour = texelFetch(LPVGridR, neighbourCellIndex,0);
+			GSHcoeffsNeighbour = texelFetch(LPVGridG, neighbourCellIndex,0);
+			BSHcoeffsNeighbour = texelFetch(LPVGridB, neighbourCellIndex,0);
+		#endif
 
 		float occlusionValue = 1.0; // no occlusion
 		//TODO: Occlusion!!!!
 		//No occlusion for the first step
-		if(!b_firstPropStep) {
-			vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
-		}
+		/*if(!b_firstPropStep) {
+			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
+			vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			vec4 occCoeffs = texture(GeometryVolume, occCoord);
+			occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -mainDirection )),0.0,1.0 );
+		}*/
 
 		float occludedDirectFaceContribution = occlusionValue * directFaceSubtendedSolidAngle;
 
 		vec4 mainDirectionCosineLobeSH = evalCosineLobeToDir_direct( mainDirection );
 		vec4 mainDirectionSH = evalSH_direct( mainDirection );
-		c.R += occludedDirectFaceContribution * dot( RSHcoeffsNeighbour, mainDirectionSH ) * mainDirectionCosineLobeSH;
-		c.G += occludedDirectFaceContribution * dot( GSHcoeffsNeighbour, mainDirectionSH ) * mainDirectionCosineLobeSH;
-		c.B += occludedDirectFaceContribution * dot( BSHcoeffsNeighbour, mainDirectionSH ) * mainDirectionCosineLobeSH;
+		c.R += occludedDirectFaceContribution * max(0.0, dot( RSHcoeffsNeighbour, mainDirectionSH )) * mainDirectionCosineLobeSH;
+		c.G += occludedDirectFaceContribution * max(0.0, dot( GSHcoeffsNeighbour, mainDirectionSH )) * mainDirectionCosineLobeSH;
+		c.B += occludedDirectFaceContribution * max(0.0, dot( BSHcoeffsNeighbour, mainDirectionSH )) * mainDirectionCosineLobeSH;
 
 		//Now we have contribution for the neighbour's cell in the main direction -> need to do reprojection 
 		//Reprojection will be made only onto 4 faces (acctually we need to take into account 5 faces but we already have the one in the main direction)
@@ -151,9 +174,11 @@ void propagate() {
 
 			//TODO: Occlusion!!!!
 			//No occlusion for the first step
-			if(!b_firstPropStep) {
-				vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
-			}
+			/*if(!b_firstPropStep) {
+				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				vec4 occCoeffs = texture(GeometryVolume, occCoord);
+				occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -evalDirection )),0.0,1.0 );
+			}*/
 
 			float occludedSideFaceContribution = occlusionValue * sideFaceSubtendedSolidAngle;
 			
@@ -161,26 +186,31 @@ void propagate() {
 			vec4 reprojDirectionCosineLobeSH = evalCosineLobeToDir_direct( reprojDirection );
 			vec4 evalDirectionSH = evalSH_direct( evalDirection );
 			
-			c.R += occludedSideFaceContribution * dot( RSHcoeffsNeighbour, evalDirectionSH ) * reprojDirectionCosineLobeSH;
-			c.G += occludedSideFaceContribution * dot( GSHcoeffsNeighbour, evalDirectionSH ) * reprojDirectionCosineLobeSH;
-			c.B += occludedSideFaceContribution * dot( BSHcoeffsNeighbour, evalDirectionSH ) * reprojDirectionCosineLobeSH;
+			c.R += occludedSideFaceContribution * max(0.0, dot( RSHcoeffsNeighbour, evalDirectionSH )) * reprojDirectionCosineLobeSH;
+			c.G += occludedSideFaceContribution * max(0.0, dot( GSHcoeffsNeighbour, evalDirectionSH )) * reprojDirectionCosineLobeSH;
+			c.B += occludedSideFaceContribution * max(0.0, dot( BSHcoeffsNeighbour, evalDirectionSH )) * reprojDirectionCosineLobeSH;
 
 		}
 	}
 
 	//Save the contribution for the next iteration
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0),f16vec4(c.R));
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1),f16vec4(c.G));
-	imageAtomicAdd(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2),f16vec4(c.B));
+	imageAtomicAdd(RLightGridForNextStep, cellIndex,f16vec4(c.R));
+	imageAtomicAdd(GLightGridForNextStep, cellIndex,f16vec4(c.G));
+	imageAtomicAdd(BLightGridForNextStep, cellIndex,f16vec4(c.B));
 }
 
 void main()
 {
 	propagate();
 	//vec4 Rchannel = imageLoad(LightGrid, cellIndex);
-	vec4 R = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0));
+	/*vec4 R = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0));
 	vec4 G = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1));
-	vec4 B = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2));
+	vec4 B = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2));*/
+
+	vec4 R = imageLoad(RLightGridForNextStep, cellIndex);
+	vec4 G = imageLoad(GLightGridForNextStep, cellIndex);
+	vec4 B = imageLoad(BLightGridForNextStep, cellIndex);
+
 	imageAtomicAdd(RAccumulatorLPV, cellIndex,f16vec4(R));
 	imageAtomicAdd(GAccumulatorLPV, cellIndex,f16vec4(G));
 	imageAtomicAdd(BAccumulatorLPV, cellIndex,f16vec4(B));

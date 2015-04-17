@@ -87,6 +87,7 @@ void main()
 	vec4 SHintensity = evalSH_direct( -worldNorm );
 	#ifdef USESAMPLER3D
 		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim; //<0,1>
+		//lpvCellCoords = clamp(lpvCellCoords, 0.0, 1.0);
 		vec3 lpvIntensity = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV, lpvCellCoords) ),
 			dot( SHintensity, texture( GAccumulatorLPV, lpvCellCoords ) ),

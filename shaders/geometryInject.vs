@@ -38,7 +38,7 @@ float calculateSurfelAreaLightOrtho(vec3 lightPos) {
 	return (4.0 * lightPos.z * lightPos.z)/(i_RSMsize * i_RSMsize);
 }
 
-//#define LIGHTVIEW
+#define LIGHTVIEW
 
 void main()
 {
