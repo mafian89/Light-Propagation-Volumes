@@ -207,10 +207,15 @@ void Initialize(SDL_Window * w) {
 	Light DIRECTION vector: (0.168037, -0.964752, -0.202527)
 	Light horizotnal angle: 2.449
 	Light vertical angle: -1.3045
+
+	Light POSITION vector: (-0.197587, 65.0856, 10.0773)
+	Light DIRECTION vector: (0.000831289, -0.947236, -0.320536)
+	Light horizotnal angle: 3.139
+	Light vertical angle: -1.2445
 	*/
-	light = new CLightObject(glm::vec3(-7.07759, 56.7856, 10.0773), glm::vec3(0.168037, -0.964752, -0.202527));
-	light->setHorAngle(2.449);
-	light->setVerAngle(-1.3045);
+	light = new CLightObject(glm::vec3(-0.197587, 65.0856, 10.0773), glm::vec3(0.000831289, -0.947236, -0.320536));
+	light->setHorAngle(3.139);
+	light->setVerAngle(-1.2445);
 #else
 	/*
 	Light POSITION vector: (-0.977592, 59.4256, 10.0773)
@@ -564,7 +569,7 @@ void Display() {
 	////////////////////////////////////////////////////
 	// FILL THE G-BUFFER
 	////////////////////////////////////////////////////
-	/*gBuffer->bindToRender();
+	gBuffer->bindToRender();
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gBufferShader.Use();
@@ -574,7 +579,7 @@ void Display() {
 	glUniformMatrix3fv(gBufferShader("mn"), 1, GL_FALSE, glm::value_ptr(mn));
 	mesh->render();
 	gBufferShader.UnUse();
-	gBuffer->unbind();*/
+	gBuffer->unbind();
 	
 	////////////////////////////////////////////////////
 	// SHADOW MAP

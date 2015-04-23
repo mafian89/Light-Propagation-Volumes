@@ -46,6 +46,10 @@ void CBoundingBox::calculatePointDimensions() {
 	height = int(volSize.y / cellSize + 0.5f);
 	depth = int(volSize.z / cellSize + 0.5f);
 
+	//width = MAX_GRID_SIZE;
+	//height = MAX_GRID_SIZE;
+	//depth = MAX_GRID_SIZE;
+
 	//glm::vec3 tmpPoint = glm::vec3(-29.656474, -2.739784, -18.599974) + glm::vec3(2.0)*glm::vec3(cellSize);
 	//glm::vec3 tmpPoint = min;
 	//for (int i = 0; i < 5; i++) {

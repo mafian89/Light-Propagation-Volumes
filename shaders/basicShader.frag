@@ -102,10 +102,11 @@ void main()
 		);
 	#endif
 
-	vec3 finalLPVRadiance = 0.1*  max( lpvIntensity * 4 / f_cellSize / f_cellSize, 0 );
+	vec3 finalLPVRadiance = 0.8*  max( lpvIntensity, 0 ); //* 4 / f_cellSize / f_cellSize
 
-	vec3 lightIntesity =  shadow*(ambient + ((finalLPVRadiance*diffuse) + kd) + spec)*att;
-	final_color = vec4(finalLPVRadiance,1.0);
+	//vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
+	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + kd * finalLPVRadiance;
+	final_color = vec4(lightIntesity,1.0);
 
 	normals = vec4(tmpNormal,1.0);
 
