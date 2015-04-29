@@ -51,6 +51,7 @@ float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
+bool b_useOcclusion = true;
 
 int volumeDimensionsMult;
 bool useMultiStepPropagation = false;
@@ -406,6 +407,7 @@ void Initialize(SDL_Window * w) {
 	propagationShader.AddUniform("LPVGridB");
 	propagationShader.AddUniform("b_firstPropStep");
 	propagationShader.AddUniform("v_gridDim");
+	propagationShader.AddUniform("b_useOcclusion");
 	propagationShader.UnUse();
 
 
@@ -781,6 +783,7 @@ void Display() {
 			if (i > 0)
 				b_firstPropStep = false;
 			glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+			glUniform1i(propagationShader("b_useOcclusion"), b_useOcclusion);
 			//glBindImageTexture(3, propTextures[i-1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 			//glBindImageTexture(4, propTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 			glActiveTexture(GL_TEXTURE1);
@@ -1129,7 +1132,8 @@ int main() {
 			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
 				if (event.key.keysym.sym == SDLK_p)
 					useMultiStepPropagation = !useMultiStepPropagation;
-				// ... handle other keys
+				if (event.key.keysym.sym == SDLK_o)
+					b_useOcclusion = !b_useOcclusion;
 			}
 		}
 		old_time = current_time;

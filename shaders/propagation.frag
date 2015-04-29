@@ -25,6 +25,7 @@ layout(rgba16f ,location = 4) uniform image3D GLightGridForNextStep;
 layout(rgba16f ,location = 5) uniform image3D BLightGridForNextStep;
 
 uniform bool b_firstPropStep;
+uniform bool b_useOcclusion;
 uniform vec3 v_gridDim; //Resolution of the grid
 flat in ivec3 cellIndex;
 
@@ -148,12 +149,12 @@ void propagate() {
 		float occlusionValue = 1.0; // no occlusion
 		//TODO: Occlusion!!!!
 		//No occlusion for the first step
-		/*if(!b_firstPropStep) {
+		if(!b_firstPropStep && b_useOcclusion) {
 			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
 			vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
 			vec4 occCoeffs = texture(GeometryVolume, occCoord);
 			occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -mainDirection )),0.0,1.0 );
-		}*/
+		}
 
 		float occludedDirectFaceContribution = occlusionValue * directFaceSubtendedSolidAngle;
 
@@ -174,11 +175,11 @@ void propagate() {
 
 			//TODO: Occlusion!!!!
 			//No occlusion for the first step
-			/*if(!b_firstPropStep) {
+			if(!b_firstPropStep && b_useOcclusion) {
 				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
 				vec4 occCoeffs = texture(GeometryVolume, occCoord);
 				occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -evalDirection )),0.0,1.0 );
-			}*/
+			}
 
 			float occludedSideFaceContribution = occlusionValue * sideFaceSubtendedSolidAngle;
 			
