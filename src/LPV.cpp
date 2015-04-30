@@ -40,7 +40,6 @@ CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
 CFboManager * lightInjectFBO = new CFboManager();
 CFboManager * geometryInjectFBO = new CFboManager();
-CFboManager * propagationFBO = new CFboManager(); 
 CLightObject * light;
 DebugDrawer * dd;
 //GLuint depthPassFBO;
@@ -72,6 +71,7 @@ typedef struct propTex {
 } propTextureType;
 
 propTextureType propTextures[PROPAGATION_STEPS];
+CFboManager propagationFBOs[PROPAGATION_STEPS];
 
 //#define CTV
 //#define W2
@@ -198,6 +198,27 @@ void initPropStepTextures() {
 	}
 }
 
+//This function *MUST* be called after initPropStepTextures()
+void initPropagationFBOs() {
+	//for (int i = 1; i < PROPAGATION_STEPS; i++) {
+	for (int i = 1; i < PROPAGATION_STEPS; i++) {
+		
+		propagationFBOs[i].initFbo();
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["RAccumulatorLPV"]);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, texManager["GAccumulatorLPV"]);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["BAccumulatorLPV"]);
+
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT3, propTextures[i].red);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT4, propTextures[i].green);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT5, propTextures[i].blue);
+		propagationFBOs[i].setDrawBuffers();
+		if (!propagationFBOs[i].checkFboStatus()) {
+			return;
+		}
+	}
+
+}
+
 void Initialize(SDL_Window * w) {
 	//glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
 	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
@@ -279,12 +300,12 @@ void Initialize(SDL_Window * w) {
 	geometryInject_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/geometryInject_layered.gs").c_str());
 	geometryInject_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject_layered.frag").c_str());
 	geometryInject_layered.CreateAndLinkProgram();
-	/*
+	
 	propagationShader_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation_layered.vs").c_str());
 	propagationShader_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/propagation_layered.gs").c_str());
 	propagationShader_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation_layered.frag").c_str());
 	propagationShader_layered.CreateAndLinkProgram();
-	*/
+	
 #ifdef VPL_DEBUG
 	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
 	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
@@ -436,7 +457,6 @@ void Initialize(SDL_Window * w) {
 
 	
 	geometryInject_layered.Use();
-	geometryInject_layered.AddUniform("GeometryVolume");
 	geometryInject_layered.AddUniform("v_gridDim");
 	geometryInject_layered.AddUniform("f_cellSize");
 	geometryInject_layered.AddUniform("v_min");
@@ -450,24 +470,19 @@ void Initialize(SDL_Window * w) {
 	geometryInject_layered.AddUniform("m_lightView");
 	geometryInject_layered.AddUniform("f_texelAreaModifier");
 	geometryInject_layered.UnUse();
-	/*
+	
 	propagationShader_layered.Use();
 	//propagationShader.AddUniform("AccumulatorLPV");
-	propagationShader_layered.AddUniform("RAccumulatorLPV");
-	propagationShader_layered.AddUniform("GAccumulatorLPV");
-	propagationShader_layered.AddUniform("BAccumulatorLPV");
 	propagationShader_layered.AddUniform("GeometryVolume");
-	propagationShader_layered.AddUniform("RLightGridForNextStep");
-	propagationShader_layered.AddUniform("GLightGridForNextStep");
-	propagationShader_layered.AddUniform("BLightGridForNextStep");
 	propagationShader_layered.AddUniform("LPVGridR");
 	propagationShader_layered.AddUniform("LPVGridG");
 	propagationShader_layered.AddUniform("LPVGridB");
 	propagationShader_layered.AddUniform("b_firstPropStep");
 	propagationShader_layered.AddUniform("v_gridDim");
 	propagationShader_layered.AddUniform("b_useOcclusion");
+	propagationShader_layered.AddUniform("v_gridDim");
 	propagationShader_layered.UnUse();
-	*/
+	
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS & FILL THE VARIABLES
@@ -519,6 +534,7 @@ void Initialize(SDL_Window * w) {
 	texManager.createRGBA16F3DTexture("BAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
 
 	initPropStepTextures();
+	initPropagationFBOs();
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
@@ -581,6 +597,196 @@ float elevation = 0.0;
 float rotSpeed = 30.0f;
 float elevationSpeed = 1.0f;
 bool test = true;
+
+void propagate() {
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	propagationShader.Use();
+	b_firstPropStep = true;
+
+	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
+	//texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+	//texManager.clear3Dtexture(propTextures[1]);
+
+	glUniform1i(propagationShader("RAccumulatorLPV"), 0);
+	glUniform1i(propagationShader("GAccumulatorLPV"), 1);
+	glUniform1i(propagationShader("BAccumulatorLPV"), 2);
+
+	glUniform1i(propagationShader("RLightGridForNextStep"), 3);
+	glUniform1i(propagationShader("GLightGridForNextStep"), 4);
+	glUniform1i(propagationShader("BLightGridForNextStep"), 5);
+
+	//glUniform1i(propagationShader("LightGrid"), 3);
+	//glUniform1i(propagationShader("LightGridForNextStep"), 4);
+
+	//glUniform1i(propagationShader("GeometryVolume"), 5);
+	glUniform1i(propagationShader("GeometryVolume"), 0);
+	glUniform1i(propagationShader("LPVGridR"), 1);
+	glUniform1i(propagationShader("LPVGridG"), 2);
+	glUniform1i(propagationShader("LPVGridB"), 3);
+	//glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+
+	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	//glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_3D, texManager["GeometryVolume"]);
+
+	if (useMultiStepPropagation) {
+		for (int i = 1; i < PROPAGATION_STEPS; i++) {
+			//glUniform1i(propagationShader("AccumulatorLPV"), 0);
+			if (i > 0)
+				b_firstPropStep = false;
+			glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+			glUniform1i(propagationShader("b_useOcclusion"), b_useOcclusion);
+			//glBindImageTexture(3, propTextures[i-1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			//glBindImageTexture(4, propTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].red);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].green);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].blue);
+
+			glBindImageTexture(3, propTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(4, propTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(5, propTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+			glBindVertexArray(PropagationVAO);
+			glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+			glBindVertexArray(0);
+		}
+
+		for (int j = 1; j < PROPAGATION_STEPS; j++) {
+			texManager.clear3Dtexture(propTextures[j].red);
+			texManager.clear3Dtexture(propTextures[j].green);
+			texManager.clear3Dtexture(propTextures[j].blue);
+		}
+	}
+	else {
+		//glBindImageTexture(3, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		//glBindImageTexture(4, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].red);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].green);
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].blue);
+
+		glBindImageTexture(3, propTextures[1].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(4, propTextures[1].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindImageTexture(5, propTextures[1].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+		glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
+
+		glBindVertexArray(PropagationVAO);
+		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+		glBindVertexArray(0);
+
+		texManager.clear3Dtexture(propTextures[1].red);
+		texManager.clear3Dtexture(propTextures[1].green);
+		texManager.clear3Dtexture(propTextures[1].blue);
+	}
+	propagationShader.UnUse();
+}
+
+void propagate_layered() {
+	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	propagationShader_layered.Use();
+	b_firstPropStep = true;
+
+	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
+	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+
+	glUniform1i(propagationShader_layered("GeometryVolume"), 0);
+	glUniform1i(propagationShader_layered("LPVGridR"), 1);
+	glUniform1i(propagationShader_layered("LPVGridG"), 2);
+	glUniform1i(propagationShader_layered("LPVGridB"), 3);
+	glUniform3f(propagationShader_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_3D, texManager["GeometryVolume"]);
+
+	if (useMultiStepPropagation) {
+		for (int i = 1; i < PROPAGATION_STEPS; i++) {
+			if (i > 0)
+				b_firstPropStep = false;
+			glUniform1i(propagationShader_layered("b_firstPropStep"), b_firstPropStep);
+			glUniform1i(propagationShader_layered("b_useOcclusion"), b_useOcclusion);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].red);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].green);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].blue);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, propagationFBOs[i].getFboId());
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
+			//Additive
+			glBlendEquation(GL_FUNC_ADD);
+
+			glBindImageTexture(3, propTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(4, propTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+			glBindImageTexture(5, propTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+			glBindVertexArray(PropagationVAO);
+			glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+			glBindVertexArray(0);
+
+			glDisable(GL_BLEND);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
+
+		for (int j = 1; j < PROPAGATION_STEPS; j++) {
+			texManager.clear3Dtexture(propTextures[j].red);
+			texManager.clear3Dtexture(propTextures[j].green);
+			texManager.clear3Dtexture(propTextures[j].blue);
+		}
+	}
+	else {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].red);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].green);
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_3D, propTextures[0].blue);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, propagationFBOs[1].getFboId());
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_ONE, GL_ONE);
+		//Additive
+		glBlendEquation(GL_FUNC_ADD);
+
+		glUniform1i(propagationShader_layered("b_firstPropStep"), b_firstPropStep);
+
+		glBindVertexArray(PropagationVAO);
+		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
+		glBindVertexArray(0);
+
+		glDisable(GL_BLEND);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		texManager.clear3Dtexture(propTextures[1].red);
+		texManager.clear3Dtexture(propTextures[1].green);
+		texManager.clear3Dtexture(propTextures[1].blue);
+	}
+	propagationShader_layered.UnUse();
+}
+
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -828,105 +1034,12 @@ void Display() {
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
-	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
-	glDisable(GL_DEPTH_TEST);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	propagationShader.Use();
-	b_firstPropStep = true;
-
-	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
-	//texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
-	//texManager.clear3Dtexture(propTextures[1]);
-
-	glUniform1i(propagationShader("RAccumulatorLPV"), 0);
-	glUniform1i(propagationShader("GAccumulatorLPV"), 1);
-	glUniform1i(propagationShader("BAccumulatorLPV"), 2);
-
-	glUniform1i(propagationShader("RLightGridForNextStep"), 3);
-	glUniform1i(propagationShader("GLightGridForNextStep"), 4);
-	glUniform1i(propagationShader("BLightGridForNextStep"), 5);
-
-	//glUniform1i(propagationShader("LightGrid"), 3);
-	//glUniform1i(propagationShader("LightGridForNextStep"), 4);
-
-	//glUniform1i(propagationShader("GeometryVolume"), 5);
-	glUniform1i(propagationShader("GeometryVolume"), 0);
-	glUniform1i(propagationShader("LPVGridR"), 1);
-	glUniform1i(propagationShader("LPVGridG"), 2);
-	glUniform1i(propagationShader("LPVGridB"), 3);
-	//glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
-	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-
-	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	//glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_3D, texManager["GeometryVolume"]);
-
-	if (useMultiStepPropagation) {
-		for (int i = 1; i < PROPAGATION_STEPS; i++) {
-			//glUniform1i(propagationShader("AccumulatorLPV"), 0);
-			if (i > 0)
-				b_firstPropStep = false;
-			glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
-			glUniform1i(propagationShader("b_useOcclusion"), b_useOcclusion);
-			//glBindImageTexture(3, propTextures[i-1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			//glBindImageTexture(4, propTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].red);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].green);
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_3D, propTextures[i - 1].blue);
-
-			glBindImageTexture(3, propTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(4, propTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(5, propTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-
-			glBindVertexArray(PropagationVAO);
-			glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
-			glBindVertexArray(0);
-		}
-
-		for (int j = 1; j < PROPAGATION_STEPS; j++) {
-			texManager.clear3Dtexture(propTextures[j].red);
-			texManager.clear3Dtexture(propTextures[j].green);
-			texManager.clear3Dtexture(propTextures[j].blue);
-		}
+	if (b_useLayeredFill) {
+		propagate_layered();
 	}
 	else {
-		//glBindImageTexture(3, propTextures[0], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		//glBindImageTexture(4, propTextures[1], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_3D, propTextures[0].red);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_3D, propTextures[0].green);
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_3D, propTextures[0].blue);
-
-		glBindImageTexture(3, propTextures[1].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(4, propTextures[1].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-		glBindImageTexture(5, propTextures[1].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-
-		glUniform1i(propagationShader("b_firstPropStep"), b_firstPropStep);
-
-		glBindVertexArray(PropagationVAO);
-		glDrawArrays(GL_POINTS, 0, volumeDimensionsMult);
-		glBindVertexArray(0);
-
-		texManager.clear3Dtexture(propTextures[1].red);
-		texManager.clear3Dtexture(propTextures[1].green);
-		texManager.clear3Dtexture(propTextures[1].blue);
+		propagate();
 	}
-	test = false;
-	propagationShader.UnUse();
 
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
@@ -1045,7 +1158,6 @@ void Finalize(void) {
 	delete light;
 	delete dd;
 	delete gBuffer;
-	delete propagationFBO;
 	delete geometryInjectFBO;
 	delete lightInjectFBO;
 }
