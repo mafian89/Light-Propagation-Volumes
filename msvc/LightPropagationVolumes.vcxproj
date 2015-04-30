@@ -52,7 +52,6 @@
     <None Include="..\shaders\geometryInject.frag" />
     <None Include="..\shaders\geometryInject.vs" />
     <None Include="..\shaders\lightInject.frag" />
-    <None Include="..\shaders\lightInject.gs" />
     <None Include="..\shaders\lightInject.vs" />
     <None Include="..\shaders\lightInject_layered.frag" />
     <None Include="..\shaders\lightInject_layered.gs" />

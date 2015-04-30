@@ -28,7 +28,7 @@ float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
-GLSLShader basicShader, rsmShader, shadowMap, injectLight, injectLight_layered, VPLsDebug, geometryInject, gBufferShader, propagationShader;
+GLSLShader basicShader, rsmShader, shadowMap, injectLight, injectLight_layered, VPLsDebug, geometryInject, geometryInject_layered, gBufferShader, propagationShader, propagationShader_layered;
 Mesh * mesh;
 GBuffer * gBuffer;
 float movementSpeed = 10.0f;
@@ -38,7 +38,7 @@ CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
-CFboManager * testInject = new CFboManager();
+CFboManager * lightInjectFBO = new CFboManager();
 CLightObject * light;
 DebugDrawer * dd;
 //GLuint depthPassFBO;
@@ -265,13 +265,24 @@ void Initialize(SDL_Window * w) {
 	injectLight_layered.CreateAndLinkProgram();
 
 	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
-	//injectLight.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject.gs").c_str());
 	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
 	injectLight.CreateAndLinkProgram();
 
 	geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
 	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
 	geometryInject.CreateAndLinkProgram();
+
+	/*
+	geometryInject_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject_layered.vs").c_str());
+	geometryInject_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/geometryInject_layered.gs").c_str());
+	geometryInject_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject_layered.frag").c_str());
+	geometryInject_layered.CreateAndLinkProgram();
+
+	propagationShader_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation_layered.vs").c_str());
+	propagationShader_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/propagation_layered.gs").c_str());
+	propagationShader_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation_layered.frag").c_str());
+	propagationShader_layered.CreateAndLinkProgram();
+	*/
 #ifdef VPL_DEBUG
 	VPLsDebug.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/debugVPLs.vs").c_str());
 	VPLsDebug.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/debugVPLs.frag").c_str());
@@ -421,6 +432,40 @@ void Initialize(SDL_Window * w) {
 	propagationShader.AddUniform("b_useOcclusion");
 	propagationShader.UnUse();
 
+	/*
+	geometryInject_layered.Use();
+	geometryInject_layered.AddUniform("GeometryVolume");
+	geometryInject_layered.AddUniform("v_gridDim");
+	geometryInject_layered.AddUniform("f_cellSize");
+	geometryInject_layered.AddUniform("v_min");
+	geometryInject_layered.AddUniform("i_RSMsize");
+	geometryInject_layered.AddUniform("rsm_world_space_coords_tex");
+	geometryInject_layered.AddUniform("rsm_normal_tex");
+	geometryInject_layered.AddUniform("rsm_flux_tex");
+	geometryInject_layered.AddUniform("f_tanFovXHalf");
+	geometryInject_layered.AddUniform("f_tanFovYHalf");
+	geometryInject_layered.AddUniform("v_lightPos");
+	geometryInject_layered.AddUniform("m_lightView");
+	geometryInject_layered.AddUniform("f_texelAreaModifier");
+	geometryInject_layered.UnUse();
+
+	propagationShader_layered.Use();
+	//propagationShader.AddUniform("AccumulatorLPV");
+	propagationShader_layered.AddUniform("RAccumulatorLPV");
+	propagationShader_layered.AddUniform("GAccumulatorLPV");
+	propagationShader_layered.AddUniform("BAccumulatorLPV");
+	propagationShader_layered.AddUniform("GeometryVolume");
+	propagationShader_layered.AddUniform("RLightGridForNextStep");
+	propagationShader_layered.AddUniform("GLightGridForNextStep");
+	propagationShader_layered.AddUniform("BLightGridForNextStep");
+	propagationShader_layered.AddUniform("LPVGridR");
+	propagationShader_layered.AddUniform("LPVGridG");
+	propagationShader_layered.AddUniform("LPVGridB");
+	propagationShader_layered.AddUniform("b_firstPropStep");
+	propagationShader_layered.AddUniform("v_gridDim");
+	propagationShader_layered.AddUniform("b_useOcclusion");
+	propagationShader_layered.UnUse();
+	*/
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS & FILL THE VARIABLES
@@ -508,14 +553,14 @@ void Initialize(SDL_Window * w) {
 		return;
 	}
 
-	testInject->initFbo();
-	//testInject->genRenderDepthBuffer(WIDTH, HEIGHT);
-	//testInject->bindRenderDepthBuffer();
-	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["LPVGridR"]);
-	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, texManager["LPVGridG"]);
-	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["LPVGridB"]);
-	testInject->setDrawBuffers();
-	if (!testInject->checkFboStatus()) {
+	lightInjectFBO->initFbo();
+	//lightInjectFBO->genRenderDepthBuffer(WIDTH, HEIGHT);
+	//lightInjectFBO->bindRenderDepthBuffer();
+	lightInjectFBO->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["LPVGridR"]);
+	lightInjectFBO->bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, texManager["LPVGridG"]);
+	lightInjectFBO->bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["LPVGridB"]);
+	lightInjectFBO->setDrawBuffers();
+	if (!lightInjectFBO->checkFboStatus()) {
 		return;
 	}
 
@@ -644,7 +689,7 @@ void Display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (b_useLayeredFill) {
-		glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
+		glBindFramebuffer(GL_FRAMEBUFFER, lightInjectFBO->getFboId());
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_ONE, GL_ONE);
 		//Additive
