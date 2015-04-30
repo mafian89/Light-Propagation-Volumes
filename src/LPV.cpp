@@ -348,7 +348,7 @@ void Initialize(SDL_Window * w) {
 	gBufferShader.AddUniform("colorTex");
 	gBufferShader.UnUse();
 
-#ifndef LAYERED_FILL
+//#ifndef LAYERED_FILL
 	injectLight.Use();
 #ifdef ALLCHANNELTEXTURE
 	injectLight.AddUniform("LightGrid");
@@ -365,7 +365,7 @@ void Initialize(SDL_Window * w) {
 	injectLight.AddUniform("rsm_normal_tex");
 	injectLight.AddUniform("rsm_flux_tex");
 	injectLight.UnUse();
-#endif
+//#endif
 
 	geometryInject.Use();
 	geometryInject.AddUniform("GeometryVolume");
@@ -450,6 +450,7 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_world_space_coords_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
+	
 #ifndef ALLCHANNELTEXTURE
 	texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 	texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -465,9 +466,6 @@ void Initialize(SDL_Window * w) {
 
 	initPropStepTextures();
 	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
-#ifdef LAYERED_FILL
-	texManager.createRGBA16F3DTexture("test3D", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-#endif
 	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
@@ -506,7 +504,9 @@ void Initialize(SDL_Window * w) {
 	testInject->initFbo();
 	//testInject->genRenderDepthBuffer(WIDTH, HEIGHT);
 	//testInject->bindRenderDepthBuffer();
-	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["test3D"]);
+	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["LPVGridR"]);
+	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, texManager["LPVGridG"]);
+	testInject->bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["LPVGridB"]);
 	testInject->setDrawBuffers();
 	if (!testInject->checkFboStatus()) {
 		return;
@@ -567,7 +567,7 @@ void Display() {
 	glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(v_light*m)));
 
 	glm::vec3 lightPosition = light->getPosition();
-
+	/*
 	////////////////////////////////////////////////////
 	// FILL THE G-BUFFER
 	////////////////////////////////////////////////////
@@ -582,6 +582,7 @@ void Display() {
 	mesh->render();
 	gBufferShader.UnUse();
 	gBuffer->unbind();
+	*/
 	
 	////////////////////////////////////////////////////
 	// SHADOW MAP
@@ -620,9 +621,11 @@ void Display() {
 	mesh->render();
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 
-
-
+	////////////////////////////////////////////////////
+	// LIGHT INJECT
+	////////////////////////////////////////////////////
 #ifdef LAYERED_FILL
 	glBindFramebuffer(GL_FRAMEBUFFER, testInject->getFboId());
 	//glViewport(0, 0, WIDTH, HEIGHT);
@@ -635,17 +638,28 @@ void Display() {
 	//Additive
 	glBlendEquation(GL_FUNC_ADD);
 	injectLight.Use();
-	glBindVertexArray(emptyVAO);//aktivujeme VAO
+
+	glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
+	glUniform1i(injectLight("rsm_normal_tex"), 1);
+	glUniform1i(injectLight("rsm_flux_tex"), 2);
+	glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
+	glUniform1f(injectLight("f_cellSize"), cellSize);
+	glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+	glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+
+	glBindVertexArray(VPLsVAO);//aktivujeme VAO
 	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
 	glBindVertexArray(0);//deaktivujeme VAO
 	injectLight.UnUse();
 	glDisable(GL_BLEND);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #else
-	////////////////////////////////////////////////////
-	// LIGHT INJECT
-	////////////////////////////////////////////////////
-	//glViewport(0, 0, WIDTH, HEIGHT);
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -731,7 +745,7 @@ void Display() {
 	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
 
 #endif
-	
+	/*
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
@@ -835,23 +849,6 @@ void Display() {
 	test = false;
 	propagationShader.UnUse();
 
-	//if (test) {
-	//	//cout << volumeDimensionsMult << endl;
-	//	int ll = editedVolumeDimensions.x * editedVolumeDimensions.y * editedVolumeDimensions.z;
-	//	float *data = new float[ll * 4];
-	//	for (unsigned i = 0; i < ll * 4; ++i)data[i] = 0.;
-	//	glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
-	//	glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
-	//	for (unsigned i = 0; i < ll * 4; ++i) {
-	//		if (data[i] > 0.0)
-	//			std::cerr << i << " " << data[i] << std::endl;
-	//	}
-
-	//	delete data;
-	//	test = false;
-	//}
-
-	
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
 	////////////////////////////////////////////////////
@@ -862,12 +859,7 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	basicShader.Use();
-	/*
-	basicShader.AddUniform("AccumulatorLPV");
-	basicShader.AddUniform("f_cellSize");
-	basicShader.AddUniform("v_gridDim");
-	basicShader.AddUniform("v_min");
-	*/
+
 #ifdef USESAMPLER3D
 	//glUniform1i(basicShader("AccumulatorLPV"), 3);
 	//glActiveTexture(GL_TEXTURE3);
@@ -947,6 +939,7 @@ void Display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
+	*/
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
