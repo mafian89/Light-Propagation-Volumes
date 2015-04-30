@@ -33,6 +33,7 @@ uniform sampler2DShadow depthTexture;
 uniform vec3 v_gridDim;
 uniform float f_cellSize;
 uniform vec3 v_min; //min corner of the volume
+uniform float f_indirectAttenuation;
 
 /*Spherical harmonics coefficients - precomputed*/
 #define SH_C0 0.282094792f // 1 / 2sqrt(pi)
@@ -102,7 +103,7 @@ void main()
 		);
 	#endif
 
-	vec3 finalLPVRadiance = 0.8*  max( lpvIntensity, 0 ); //* 4 / f_cellSize / f_cellSize
+	vec3 finalLPVRadiance = f_indirectAttenuation*  max( lpvIntensity, 0 ); //* 4 / f_cellSize / f_cellSize
 
 	//vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
 	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + kd * finalLPVRadiance;

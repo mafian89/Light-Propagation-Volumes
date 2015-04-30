@@ -1,33 +1,22 @@
 #version 430
-#extension GL_NV_shader_atomic_float : require
-#extension GL_NV_shader_atomic_fp16_vector : require
-#extension GL_NV_gpu_shader5 : require
 
-//layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
-layout(rgba16f ,location = 0) uniform image3D RAccumulatorLPV;
-layout(rgba16f ,location = 1) uniform image3D GAccumulatorLPV;
-layout(rgba16f ,location = 2) uniform image3D BAccumulatorLPV;
+layout(location=0) out vec4 RAccumulatorLPV;
+layout(location=1) out vec4 GAccumulatorLPV;
+layout(location=2) out vec4 BAccumulatorLPV;
+layout(location = 3) out vec4 RLightGridForNextStep;
+layout(location = 4) out vec4 GLightGridForNextStep;
+layout(location = 5) out vec4 BLightGridForNextStep;
 
-//layout(rgba16f ,location = 3) uniform image3D LightGrid;
-//layout(rgba16f ,location = 4) uniform image3D LightGridForNextStep;
-
-//layout(rgba16f ,location = 5) uniform image3D GeometryVolume;
-layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform sampler3D GeometryVolume;
-
-//Rewrite to this:
 uniform sampler3D LPVGridR;
 uniform sampler3D LPVGridG;
 uniform sampler3D LPVGridB;
-layout(rgba16f ,location = 3) uniform image3D RLightGridForNextStep;
-layout(rgba16f ,location = 4) uniform image3D GLightGridForNextStep;
-layout(rgba16f ,location = 5) uniform image3D BLightGridForNextStep;
 
 uniform bool b_firstPropStep;
 uniform bool b_useOcclusion;
 uniform vec3 v_gridDim; //Resolution of the grid
-flat in ivec3 cellIndex;
+flat in ivec3 GScellIndex;
 
 //const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
 //const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
@@ -120,13 +109,12 @@ struct contribution {
 };
 
 float occlusionAmplifier = 1.0f;
+contribution c;
 
 void propagate() {
-	contribution c;
 	c.R = vec4(0.0);
 	c.G = vec4(0.0);
 	c.B = vec4(0.0);
-
 	for(int neighbour = 0; neighbour < 6; neighbour++) {
 		vec4 RSHcoeffsNeighbour = vec4(0.0);
 		vec4 GSHcoeffsNeighbour = vec4(0.0);
@@ -134,16 +122,16 @@ void propagate() {
 		//Get main direction
 		ivec3 mainDirection = propDirections[neighbour]; 
 		//get neighbour cell indexindex
-		ivec3 neighbourCellIndex = cellIndex - mainDirection;
+		ivec3 neighbourGScellIndex = GScellIndex - mainDirection;
 		//Load sh coeffs
 		#ifdef ALLCHANNELTEXTURE
-			RSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 0));
-			GSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 1));
-			BSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourCellIndex, 2));
+			RSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourGScellIndex, 0));
+			GSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourGScellIndex, 1));
+			BSHcoeffsNeighbour = imageLoad(LightGrid, getTextureCoordinatesForGrid(neighbourGScellIndex, 2));
 		#else
-			RSHcoeffsNeighbour = texelFetch(LPVGridR, neighbourCellIndex,0);
-			GSHcoeffsNeighbour = texelFetch(LPVGridG, neighbourCellIndex,0);
-			BSHcoeffsNeighbour = texelFetch(LPVGridB, neighbourCellIndex,0);
+			RSHcoeffsNeighbour = texelFetch(LPVGridR, neighbourGScellIndex,0);
+			GSHcoeffsNeighbour = texelFetch(LPVGridG, neighbourGScellIndex,0);
+			BSHcoeffsNeighbour = texelFetch(LPVGridB, neighbourGScellIndex,0);
 		#endif
 
 		float occlusionValue = 1.0; // no occlusion
@@ -151,7 +139,7 @@ void propagate() {
 		//No occlusion for the first step
 		if(!b_firstPropStep && b_useOcclusion) {
 			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
-			vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			vec3 occCoord = (vec3( neighbourGScellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
 			vec4 occCoeffs = texture(GeometryVolume, occCoord);
 			occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -mainDirection )),0.0,1.0 );
 		}
@@ -176,7 +164,7 @@ void propagate() {
 			//TODO: Occlusion!!!!
 			//No occlusion for the first step
 			if(!b_firstPropStep && b_useOcclusion) {
-				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				vec3 occCoord = (vec3( neighbourGScellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
 				vec4 occCoeffs = texture(GeometryVolume, occCoord);
 				occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -evalDirection )),0.0,1.0 );
 			}
@@ -193,26 +181,29 @@ void propagate() {
 
 		}
 	}
-
-	//Save the contribution for the next iteration
-	imageAtomicAdd(RLightGridForNextStep, cellIndex,f16vec4(c.R));
-	imageAtomicAdd(GLightGridForNextStep, cellIndex,f16vec4(c.G));
-	imageAtomicAdd(BLightGridForNextStep, cellIndex,f16vec4(c.B));
 }
 
 void main()
 {
 	propagate();
-	//vec4 Rchannel = imageLoad(LightGrid, cellIndex);
-	/*vec4 R = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 0));
-	vec4 G = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 1));
-	vec4 B = imageLoad(LightGridForNextStep, getTextureCoordinatesForGrid(cellIndex, 2));*/
+	//Save the contribution for the next iteration
+	/*imageAtomicAdd(RLightGridForNextStep, GScellIndex,f16vec4(c.R));
+	imageAtomicAdd(GLightGridForNextStep, GScellIndex,f16vec4(c.G));
+	imageAtomicAdd(BLightGridForNextStep, GScellIndex,f16vec4(c.B));
 
-	vec4 R = imageLoad(RLightGridForNextStep, cellIndex);
-	vec4 G = imageLoad(GLightGridForNextStep, cellIndex);
-	vec4 B = imageLoad(BLightGridForNextStep, cellIndex);
+	vec4 R = imageLoad(RLightGridForNextStep, GScellIndex);
+	vec4 G = imageLoad(GLightGridForNextStep, GScellIndex);
+	vec4 B = imageLoad(BLightGridForNextStep, GScellIndex);
 
-	imageAtomicAdd(RAccumulatorLPV, cellIndex,f16vec4(R));
-	imageAtomicAdd(GAccumulatorLPV, cellIndex,f16vec4(G));
-	imageAtomicAdd(BAccumulatorLPV, cellIndex,f16vec4(B));
+	imageAtomicAdd(RAccumulatorLPV, GScellIndex,f16vec4(R));
+	imageAtomicAdd(GAccumulatorLPV, GScellIndex,f16vec4(G));
+	imageAtomicAdd(BAccumulatorLPV, GScellIndex,f16vec4(B));*/
+
+	RLightGridForNextStep = c.R;
+	GLightGridForNextStep = c.G;
+	BLightGridForNextStep = c.B;
+
+	RAccumulatorLPV = c.R;
+	GAccumulatorLPV = c.G;
+	BAccumulatorLPV = c.B;
 }

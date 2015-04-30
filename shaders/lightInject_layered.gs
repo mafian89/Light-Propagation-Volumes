@@ -3,7 +3,14 @@
 layout(points )in;
 layout(points ,max_vertices = 1 )out;
 
-out vec4 color;
+in ivec3 v_volumeCellIndex[];
+in vec3 v_posFromRSM[];
+in vec3 v_normalFromRSM[];
+in vec4 v_fluxFromRSM[];
+
+out vec3 v_GSposFromRSM;
+out vec3 v_GSnormalFromRSM;
+out vec4 v_GSfluxFromRSM;
 
 
 void main(){
@@ -15,8 +22,12 @@ void main(){
 	}*/
 
 		gl_Position=gl_in[0].gl_Position;
-		color = vec4(0.0,1.0,0.0,1.0);
-		gl_Layer = 1;
+		gl_Layer = v_volumeCellIndex[0].z;
+
+		v_GSposFromRSM = v_posFromRSM[0];
+		v_GSnormalFromRSM = v_normalFromRSM[0];
+		v_GSfluxFromRSM = v_fluxFromRSM[0];
+
 		EmitVertex();
 		EndPrimitive();
 

@@ -42,11 +42,11 @@ void main()
 {
 
 	//Discard pixels with really small normal
-	/*if( length( v_normalFromRSM ) < 0.01 ) {
+	if( length( v_normalFromRSM ) < 0.01 ) {
 		discard;
-	}*/
+	}
 	vec3 lightDir = normalize( v_lightPos - v_posFromRSM); //Both are in World space
-	float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
+	//float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
 
 	//vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * blockingPotencial;
 	//surfelArea

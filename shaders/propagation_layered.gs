@@ -3,7 +3,9 @@
 layout(points )in;
 layout(points ,max_vertices = 1 )out;
 
-out vec4 color;
+in ivec3 cellIndex[];
+
+out ivec3 GScellIndex;
 
 
 void main(){
@@ -15,8 +17,10 @@ void main(){
 	}*/
 
 		gl_Position=gl_in[0].gl_Position;
-		color = vec4(0.0,1.0,0.0,1.0);
-		gl_Layer = 1;
+		gl_Layer = cellIndex[0].z;
+
+		GScellIndex = cellIndex[0];
+
 		EmitVertex();
 		EndPrimitive();
 

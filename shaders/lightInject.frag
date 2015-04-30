@@ -30,7 +30,6 @@ layout(early_fragment_tests )in;//turn on early depth tests
 
 uniform vec3 v_gridDim;
 
-
 flat in ivec3 v_volumeCellIndex;
 in vec3 v_posFromRSM;
 in vec3 v_normalFromRSM;
