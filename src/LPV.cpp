@@ -39,6 +39,8 @@ CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
 CFboManager * lightInjectFBO = new CFboManager();
+CFboManager * geometryInjectFBO = new CFboManager();
+CFboManager * propagationFBO = new CFboManager(); 
 CLightObject * light;
 DebugDrawer * dd;
 //GLuint depthPassFBO;
@@ -272,12 +274,12 @@ void Initialize(SDL_Window * w) {
 	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
 	geometryInject.CreateAndLinkProgram();
 
-	/*
+	
 	geometryInject_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject_layered.vs").c_str());
 	geometryInject_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/geometryInject_layered.gs").c_str());
 	geometryInject_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject_layered.frag").c_str());
 	geometryInject_layered.CreateAndLinkProgram();
-
+	/*
 	propagationShader_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation_layered.vs").c_str());
 	propagationShader_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/propagation_layered.gs").c_str());
 	propagationShader_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation_layered.frag").c_str());
@@ -432,7 +434,7 @@ void Initialize(SDL_Window * w) {
 	propagationShader.AddUniform("b_useOcclusion");
 	propagationShader.UnUse();
 
-	/*
+	
 	geometryInject_layered.Use();
 	geometryInject_layered.AddUniform("GeometryVolume");
 	geometryInject_layered.AddUniform("v_gridDim");
@@ -448,7 +450,7 @@ void Initialize(SDL_Window * w) {
 	geometryInject_layered.AddUniform("m_lightView");
 	geometryInject_layered.AddUniform("f_texelAreaModifier");
 	geometryInject_layered.UnUse();
-
+	/*
 	propagationShader_layered.Use();
 	//propagationShader.AddUniform("AccumulatorLPV");
 	propagationShader_layered.AddUniform("RAccumulatorLPV");
@@ -561,6 +563,13 @@ void Initialize(SDL_Window * w) {
 	lightInjectFBO->bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["LPVGridB"]);
 	lightInjectFBO->setDrawBuffers();
 	if (!lightInjectFBO->checkFboStatus()) {
+		return;
+	}
+
+	geometryInjectFBO->initFbo();
+	geometryInjectFBO->bind3DTextureToFbo(GL_COLOR_ATTACHMENT0,texManager["GeometryVolume"]);
+	geometryInjectFBO->setDrawBuffers();
+	if (!geometryInjectFBO->checkFboStatus()) {
 		return;
 	}
 
@@ -755,29 +764,59 @@ void Display() {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	texManager.clear3Dtexture(texManager["GeometryVolume"]);
-	geometryInject.Use();
-	glUniform1i(geometryInject("GeometryVolume"), 0);
-	glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
-	glUniform1i(geometryInject("rsm_normal_tex"), 1);
-	glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
-	glUniform1f(geometryInject("f_cellSize"), cellSize);
-	glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
-	glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
-	glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
-	glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-	glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
-	glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-	glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
-	//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-	glBindImageTexture(0, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindVertexArray(VPLsVAO);
-	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-	glBindVertexArray(0);
-	geometryInject.UnUse();
+	if (b_useLayeredFill) {
+		glBindFramebuffer(GL_FRAMEBUFFER, geometryInjectFBO->getFboId());
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_ONE, GL_ONE);
+		//Additive
+		glBlendEquation(GL_FUNC_ADD);
+		geometryInject_layered.Use();
+		glUniform1i(geometryInject_layered("rsm_world_space_coords_tex"), 0);
+		glUniform1i(geometryInject_layered("rsm_normal_tex"), 1);
+		glUniform1i(geometryInject_layered("i_RSMsize"), RSMSIZE);
+		glUniform1f(geometryInject_layered("f_cellSize"), cellSize);
+		glUniform1f(geometryInject_layered("f_tanFovXHalf"), f_tanFovXHalf);
+		glUniform1f(geometryInject_layered("f_tanFovYHalf"), f_tanFovYHalf);
+		glUniform1f(geometryInject_layered("f_texelAreaModifier"), f_texelAreaModifier);
+		glUniform3f(geometryInject_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+		glUniform3f(geometryInject_layered("v_min"), vMin.x, vMin.y, vMin.z);
+		glUniform3f(geometryInject_layered("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+		glUniformMatrix4fv(geometryInject_layered("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+		glBindVertexArray(VPLsVAO);
+		glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+		glBindVertexArray(0);
+		geometryInject_layered.UnUse();
+		glDisable(GL_BLEND);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	} else {
+		geometryInject.Use();
+		glUniform1i(geometryInject("GeometryVolume"), 0);
+		glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
+		glUniform1i(geometryInject("rsm_normal_tex"), 1);
+		glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
+		glUniform1f(geometryInject("f_cellSize"), cellSize);
+		glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
+		glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
+		glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
+		glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+		glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
+		glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+		glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+		//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+		glBindImageTexture(0, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+		glBindVertexArray(VPLsVAO);
+		glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+		glBindVertexArray(0);
+		geometryInject.UnUse();
+	}
 
 	//float data[5 * 5 * 5 * 4];
 	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
@@ -1006,6 +1045,9 @@ void Finalize(void) {
 	delete light;
 	delete dd;
 	delete gBuffer;
+	delete propagationFBO;
+	delete geometryInjectFBO;
+	delete lightInjectFBO;
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);

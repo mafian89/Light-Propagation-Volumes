@@ -163,5 +163,23 @@
     <None Include="..\shaders\propagation.vs">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="..\shaders\geometryInject_layered.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\geometryInject_layered.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\propagation_layered.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\propagation_layered.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\propagation_layered.vs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="..\shaders\geometryInject_layered.gs">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
