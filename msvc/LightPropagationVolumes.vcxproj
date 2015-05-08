@@ -19,6 +19,7 @@
     <ClCompile Include="..\src\fboManager.cpp" />
     <ClCompile Include="..\src\GBuffer.cpp" />
     <ClCompile Include="..\src\GLSLShader\GLSLShader.cpp" />
+    <ClCompile Include="..\src\Grid.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
     <ClCompile Include="..\src\textureManager.cpp" />
@@ -34,6 +35,7 @@
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GBuffer.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
+    <ClInclude Include="..\src\Grid.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
     <ClInclude Include="..\src\textureManager.h" />
     <ClInclude Include="..\src\texUtils.h" />

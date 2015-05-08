@@ -1,5 +1,6 @@
 #include "common.h"
 #include "CTextureViewer.h"
+#include "Grid.h"
 
 
 #ifdef _MSC_VER
@@ -41,7 +42,7 @@ CFboManager * ShadowMapManager = new CFboManager();
 CFboManager * lightInjectFBO = new CFboManager();
 CFboManager * geometryInjectFBO = new CFboManager();
 CLightObject * light;
-DebugDrawer * dd;
+DebugDrawer * dd, *dd_l1, *dd_l2;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
 GLuint VPLsVAO, VPLsVBO, PropagationVAO, PropagationVBO;
@@ -58,6 +59,7 @@ bool b_useLayeredFill = true;
 
 int volumeDimensionsMult;
 bool useMultiStepPropagation = false;
+Grid levels[CASCADES];
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -488,12 +490,23 @@ void Initialize(SDL_Window * w) {
 	// LOAD MODELS & FILL THE VARIABLES
 	////////////////////////////////////////////////////
 	mesh = new Mesh("../models/sponza.obj");
+	levels[0] = mesh->getBoundingBox()->getGrid();
+	volumeDimensions = levels[0].getDimensions();
+	cellSize = levels[0].getCellSize();
+	vMin = levels[0].getMin();
+
+	levels[1] = Grid(levels[0], 0.75);
+	levels[2] = Grid(levels[0], 0.5);
+
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
-	volumeDimensions = mesh->getBoundingBox()->getDimensions();
-	editedVolumeDimensions = glm::vec3(volumeDimensions.x, volumeDimensions.y * 3, volumeDimensions.z);
-	cellSize = mesh->getBoundingBox()->getCellSize();
-	std::cout << "Grid size: " << volumeDimensions.x << "x" << volumeDimensions.y << "x" << volumeDimensions.z << " cell size: " << cellSize << std::endl;
-	vMin = mesh->getBoundingBox()->getMin();
+	CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
+	CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
+	dd_l1 = new DebugDrawer(GL_LINE_STRIP, &(bb_l1->getDebugDrawPoints()), NULL, NULL);
+	dd_l2 = new DebugDrawer(GL_LINE_STRIP, &(bb_l2->getDebugDrawPoints()), NULL, NULL);
+
+	delete bb_l1;
+	delete bb_l2;
+
 	initializeVPLsInvocations();
 	initializePropagationVAO(volumeDimensions);
 
@@ -850,7 +863,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-	
+
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -888,7 +901,7 @@ void Display() {
 	mesh->render();
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
+
 
 	////////////////////////////////////////////////////
 	// LIGHT INJECT
@@ -931,7 +944,8 @@ void Display() {
 		injectLight_layered.UnUse();
 		glDisable(GL_BLEND);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	} else {
+	}
+	else {
 		injectLight.Use();
 		//texManager.clear3Dtexture(texManager["LPVGridR"]);
 		//texManager.clear3Dtexture(texManager["LPVGridG"]);
@@ -998,7 +1012,8 @@ void Display() {
 		geometryInject_layered.UnUse();
 		glDisable(GL_BLEND);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	} else {
+	}
+	else {
 		geometryInject.Use();
 		glUniform1i(geometryInject("GeometryVolume"), 0);
 		glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
@@ -1030,7 +1045,7 @@ void Display() {
 	//glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
 	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
 
-	
+
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
@@ -1075,7 +1090,7 @@ void Display() {
 	glUniform1i(basicShader("BAccumulatorLPV"), 2);
 	glBindImageTexture(2, texManager["BccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 #endif
-	
+
 	glUniform1f(basicShader("f_cellSize"), cellSize);
 	glUniform1f(basicShader("f_indirectAttenuation"), f_indirectAttenuation);// f_indirectAttenuation
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
@@ -1097,6 +1112,10 @@ void Display() {
 
 	dd->setVPMatrix(mvp);
 	dd->draw();
+	dd_l1->setVPMatrix(mvp);
+	dd_l1->draw();
+	dd_l2->setVPMatrix(mvp);
+	dd_l2->draw();
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1157,6 +1176,8 @@ void Finalize(void) {
 	delete RSMFboManager;
 	delete light;
 	delete dd;
+	delete dd_l1;
+	delete dd_l2;
 	delete gBuffer;
 	delete geometryInjectFBO;
 	delete lightInjectFBO;
@@ -1266,7 +1287,7 @@ int main() {
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
 
-	SDL_GL_SetSwapInterval(1);
+	//SDL_GL_SetSwapInterval(1);
 
 	bool quit = false;
 

@@ -3,7 +3,9 @@
 
 #include "common.h"
 
-class IDrawable;
+//class IDrawable;
+
+class Grid;
 
 class CBoundingBox  {
 private:
@@ -17,7 +19,7 @@ private:
 	void calculatePointDimensions();
 public:
 	CBoundingBox();
-	CBoundingBox(glm::vec3, glm::vec3);
+	CBoundingBox(glm::vec3 min, glm::vec3 max);
 	~CBoundingBox();
 	glm::vec3 getMax();
 	glm::vec3 getMin();
@@ -28,6 +30,7 @@ public:
 	int getH();
 	int getD();
 	glm::vec3 getDimensions();
+	Grid getGrid();
 	//virtual void draw();
 };
 
