@@ -498,11 +498,11 @@ void Initialize(SDL_Window * w) {
 	levels[1] = Grid(levels[0], 0.75);
 	levels[2] = Grid(levels[0], 0.5);
 
-	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL);
+	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL, glm::vec3(1.0,0.0,0.0));
 	CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 	CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
-	dd_l1 = new DebugDrawer(GL_LINE_STRIP, &(bb_l1->getDebugDrawPoints()), NULL, NULL);
-	dd_l2 = new DebugDrawer(GL_LINE_STRIP, &(bb_l2->getDebugDrawPoints()), NULL, NULL);
+	dd_l1 = new DebugDrawer(GL_LINE_STRIP, &(bb_l1->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 1.0, 0.0));
+	dd_l2 = new DebugDrawer(GL_LINE_STRIP, &(bb_l2->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 0.0, 1.0));
 
 	delete bb_l1;
 	delete bb_l2;

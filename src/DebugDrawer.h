@@ -6,12 +6,16 @@
 class DebugDrawer {
 public:
 	DebugDrawer();
-	DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std::vector<glm::vec2> *uv, const std::vector<float> *i);
+	DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std::vector<glm::vec2> *uv, const std::vector<float> *i, glm::vec3 color);
 	~DebugDrawer();
 	void setVPMatrix(glm::mat4 vp);
+	void setDrawColor(glm::vec3 c) {
+		color = c;
+	}
 	void draw();
 private:
 	GLenum mode;
+	glm::vec3 color;
 	std::vector<glm::vec3> p;
 	std::vector<glm::vec2> uv;
 	std::vector<float> i;
