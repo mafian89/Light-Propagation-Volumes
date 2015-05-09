@@ -77,6 +77,8 @@ CFboManager propagationFBOs[PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
 
+void printVector(glm::vec3 v);
+
 //#define CTV
 //#define W2
 
@@ -535,17 +537,20 @@ void Initialize(SDL_Window * w) {
 	cellSize = levels[0].getCellSize();
 	vMin = levels[0].getMin();
 
-	levels[1] = Grid(levels[0], 0.75);
-	levels[2] = Grid(levels[0], 0.5);
-
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL, glm::vec3(1.0,0.0,0.0));
-	CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
-	CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
-	dd_l1 = new DebugDrawer(GL_LINE_STRIP, &(bb_l1->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 1.0, 0.0));
-	dd_l2 = new DebugDrawer(GL_LINE_STRIP, &(bb_l2->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 0.0, 1.0));
 
-	delete bb_l1;
-	delete bb_l2;
+	if (CASCADES >= 3) {
+		levels[1] = Grid(levels[0], 0.75);
+		levels[2] = Grid(levels[0], 0.5);
+
+		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
+		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
+		dd_l1 = new DebugDrawer(GL_LINE_STRIP, &(bb_l1->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 1.0, 0.0));
+		dd_l2 = new DebugDrawer(GL_LINE_STRIP, &(bb_l2->getDebugDrawPoints()), NULL, NULL, glm::vec3(0.0, 0.0, 1.0));
+
+		delete bb_l1;
+		delete bb_l2;
+	}
 
 	initializeVPLsInvocations();
 	initializePropagationVAO(volumeDimensions);
@@ -1150,10 +1155,12 @@ void Display() {
 
 	dd->setVPMatrix(mvp);
 	dd->draw();
-	dd_l1->setVPMatrix(mvp);
-	dd_l1->draw();
-	dd_l2->setVPMatrix(mvp);
-	dd_l2->draw();
+	if (CASCADES >= 3) {
+		dd_l1->setVPMatrix(mvp);
+		dd_l1->draw();
+		dd_l2->setVPMatrix(mvp);
+		dd_l2->draw();
+	}
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1214,8 +1221,10 @@ void Finalize(void) {
 	delete RSMFboManager;
 	delete light;
 	delete dd;
-	delete dd_l1;
-	delete dd_l2;
+	if (dd_l1 != NULL)
+		delete dd_l1;
+	if (dd_l2 != NULL)
+		delete dd_l2;
 	delete gBuffer;
 }
 void Reshape(int width, int height){
