@@ -72,6 +72,7 @@ typedef struct propTex {
 
 propTextureType propTextures[PROPAGATION_STEPS];
 propTextureType injectCascadeTextures[CASCADES];
+propTextureType accumulatorCascadeTextures[CASCADES];
 GLuint geometryInjectCascadeTextures[CASCADES];
 CFboManager propagationFBOs[PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
@@ -181,7 +182,7 @@ void initializePropagationVAO(glm::vec3 volumeDimensions) {
 	//delete tmp;
 }
 
-//This function *MUST* be called after creation of LightGrid texture
+//This function *MUST* be called after creation of injectCascadeTextures
 void initPropStepTextures() {
 	propTextures[0].red = injectCascadeTextures[0].red;
 	propTextures[0].green = injectCascadeTextures[0].green;
@@ -200,15 +201,15 @@ void initPropStepTextures() {
 	}
 }
 
-//This function *MUST* be called after initPropStepTextures()
+//This function *MUST* be called after creation of accumulatorCascadeTextures
 void initPropagationFBOs() {
 	//for (int i = 1; i < PROPAGATION_STEPS; i++) {
 	for (int i = 1; i < PROPAGATION_STEPS; i++) {
 		
 		propagationFBOs[i].initFbo();
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, texManager["RAccumulatorLPV"]);
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, texManager["GAccumulatorLPV"]);
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, texManager["BAccumulatorLPV"]);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, accumulatorCascadeTextures[0].red);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, accumulatorCascadeTextures[0].green);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, accumulatorCascadeTextures[0].blue);
 
 		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT3, propTextures[i].red);
 		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT4, propTextures[i].green);
@@ -231,17 +232,29 @@ void initInjectFBOs() {
 
 		string texNameOcclusion = "GeometryVolume_cascade_" + std::to_string(i);
 
+		string texNameRaccum = "RAccumulatorLPV_cascade_" + std::to_string(i);
+		string texNameGaccum = "GAccumulatorLPV_cascade_" + std::to_string(i);
+		string texNameBaccum = "BAccumulatorLPV_cascade_" + std::to_string(i);
+
 		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 
 		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
 
+		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+
 		injectCascadeTextures[i].red = texManager[texNameR];
 		injectCascadeTextures[i].green = texManager[texNameG];
 		injectCascadeTextures[i].blue = texManager[texNameB];
 
 		geometryInjectCascadeTextures[i] = texManager[texNameOcclusion];
+
+		accumulatorCascadeTextures[i].red = texManager[texNameRaccum];
+		accumulatorCascadeTextures[i].green = texManager[texNameGaccum];
+		accumulatorCascadeTextures[i].blue = texManager[texNameBaccum];
 
 		lightInjectCascadeFBOs[i].initFbo();
 		lightInjectCascadeFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, injectCascadeTextures[i].red);
@@ -583,20 +596,8 @@ void Initialize(SDL_Window * w) {
 	texManager.createTexture("rsm_flux_tex", "", RSMSIZE, RSMSIZE, GL_NEAREST, GL_RGBA16F, GL_RGBA, false);
 	texManager.createTexture("rsm_depth_tex", "", SHADOWMAPSIZE, SHADOWMAPSIZE, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 	
-	//texManager.createRGBA16F3DTexture("LPVGridR", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	//texManager.createRGBA16F3DTexture("LPVGridG", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	//texManager.createRGBA16F3DTexture("LPVGridB", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	//texManager.createRGBA16F3DTexture("GeometryVolume", volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	//texManager.createRGBA16F3DTexture("AccumulatorLPV", editedVolumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("RAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("GAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-	texManager.createRGBA16F3DTexture("BAccumulatorLPV", volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-	
 	initPropStepTextures();
 	initPropagationFBOs();
-	
-	//texManager.createRGBA3DTexture("test3D", 5, 5, 5, GL_NEAREST, GL_CLAMP_TO_EDGE);
-	//texManager.createTexture("rsm_depth_tex", "", WIDTH, HEIGHT, GL_LINEAR, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, true);
 
 	////////////////////////////////////////////////////
 	// FBO INIT
@@ -634,11 +635,6 @@ void Initialize(SDL_Window * w) {
 	//IN CASE OF PROBLEMS UNCOMMENT LINE BELOW
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-float rot = 0.0;
-float elevation = 0.0;
-float rotSpeed = 30.0f;
-float elevationSpeed = 1.0f;
-bool test = true;
 
 void propagate(int level) {
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
@@ -651,9 +647,9 @@ void propagate(int level) {
 	//GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	//glClearTexImage(texManager["AccumulatorLPV"], 0, GL_RGBA, GL_FLOAT, &data[0]);
 	//texManager.clear3Dtexture(texManager["AccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].red);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].green);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].blue);
 	//texManager.clear3Dtexture(propTextures[1]);
 
 	glUniform1i(propagationShader("RAccumulatorLPV"), 0);
@@ -676,9 +672,9 @@ void propagate(int level) {
 	glUniform3f(propagationShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
 	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glBindImageTexture(2, texManager["BAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, accumulatorCascadeTextures[level].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, accumulatorCascadeTextures[level].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, accumulatorCascadeTextures[level].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	//glBindImageTexture(5, texManager["GeometryVolume"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_3D, geometryInjectCascadeTextures[level]);
@@ -749,9 +745,9 @@ void propagate_layered(int level) {
 	propagationShader_layered.Use();
 	b_firstPropStep = true;
 
-	texManager.clear3Dtexture(texManager["RAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["GAccumulatorLPV"]);
-	texManager.clear3Dtexture(texManager["BAccumulatorLPV"]);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].red);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].green);
+	texManager.clear3Dtexture(accumulatorCascadeTextures[level].blue);
 
 	glUniform1i(propagationShader_layered("GeometryVolume"), 0);
 	glUniform1i(propagationShader_layered("LPVGridR"), 1);
@@ -843,25 +839,7 @@ void Display() {
 
 	//Camera update
 	controlCamera->computeMatricesFromInputs();
-
-#ifdef ROT
-	rot = rot + rotSpeed * ftime;
-	if (rot > 360.0)
-		rot = 0.0;
-	//elevation = elevation + elevationSpeed * ftime;
-	if (elevation <= 1.0 && elevation > 0.0) {
-		elevation = elevation + elevationSpeed * ftime;
-	}
-	else {
-		elevation = elevation - elevationSpeed * ftime;
-	}
-#endif
-
 	glm::mat4 m = glm::mat4(1.0f);
-#ifdef ROT
-	m = glm::rotate(m, rot, glm::vec3(0, 1, 0));
-	m = glm::translate(m, glm::vec3(0, sin(elevation), 0));
-#endif
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
 	glm::mat4 v = controlCamera->getViewMatrix();
@@ -1116,22 +1094,22 @@ void Display() {
 	//glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
 	glUniform1i(basicShader("RAccumulatorLPV"), 3);
 	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_3D, texManager["RAccumulatorLPV"]);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].red);
 	glUniform1i(basicShader("GAccumulatorLPV"), 4);
 	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_3D, texManager["GAccumulatorLPV"]);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].green);
 	glUniform1i(basicShader("BAccumulatorLPV"), 5);
 	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, texManager["BAccumulatorLPV"]);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].blue);
 #else
 	//glUniform1i(basicShader("AccumulatorLPV"), 0);
 	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glUniform1i(basicShader("RAccumulatorLPV"), 0);
-	glBindImageTexture(0, texManager["RAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, accumulatorCascadeTextures[0].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glUniform1i(basicShader("GAccumulatorLPV"), 1);
-	glBindImageTexture(1, texManager["GAccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(1, accumulatorCascadeTextures[0].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glUniform1i(basicShader("BAccumulatorLPV"), 2);
-	glBindImageTexture(2, texManager["BccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(2, accumulatorCascadeTextures[0].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 #endif
 
 	glUniform1f(basicShader("f_cellSize"), cellSize);
