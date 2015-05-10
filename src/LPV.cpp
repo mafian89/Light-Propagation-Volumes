@@ -78,6 +78,8 @@ CFboManager propagationFBOs[PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
 
+int level = 0;
+
 void printVector(glm::vec3 v);
 
 //#define CTV
@@ -184,9 +186,9 @@ void initializePropagationVAO(glm::vec3 volumeDimensions) {
 
 //This function *MUST* be called after creation of injectCascadeTextures
 void initPropStepTextures() {
-	propTextures[0].red = injectCascadeTextures[0].red;
-	propTextures[0].green = injectCascadeTextures[0].green;
-	propTextures[0].blue = injectCascadeTextures[0].blue;
+	propTextures[0].red = injectCascadeTextures[level].red;
+	propTextures[0].green = injectCascadeTextures[level].green;
+	propTextures[0].blue = injectCascadeTextures[level].blue;
 	for (int i = 1; i < PROPAGATION_STEPS; i++) {
 		string texNameR = "RLPVStep" + std::to_string(i);
 		string texNameG = "GLPVStep" + std::to_string(i);
@@ -207,9 +209,9 @@ void initPropagationFBOs() {
 	for (int i = 1; i < PROPAGATION_STEPS; i++) {
 		
 		propagationFBOs[i].initFbo();
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, accumulatorCascadeTextures[0].red);
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, accumulatorCascadeTextures[0].green);
-		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, accumulatorCascadeTextures[0].blue);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, accumulatorCascadeTextures[level].red);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT1, accumulatorCascadeTextures[level].green);
+		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT2, accumulatorCascadeTextures[level].blue);
 
 		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT3, propTextures[i].red);
 		propagationFBOs[i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT4, propTextures[i].green);
@@ -1064,17 +1066,17 @@ void Display() {
 	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
 
 
-	vMin = levels[0].getMin();
-	cellSize = levels[0].getCellSize();
+	vMin = levels[level].getMin();
+	cellSize = levels[level].getCellSize();
 
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
 	if (b_useLayeredFill) {
-		propagate_layered(0);
+		propagate_layered(level);
 	}
 	else {
-		propagate(0);
+		propagate(level);
 	}
 
 	////////////////////////////////////////////////////
@@ -1094,13 +1096,13 @@ void Display() {
 	//glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
 	glUniform1i(basicShader("RAccumulatorLPV"), 3);
 	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].red);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level].red);
 	glUniform1i(basicShader("GAccumulatorLPV"), 4);
 	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].green);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level].green);
 	glUniform1i(basicShader("BAccumulatorLPV"), 5);
 	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].blue);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level].blue);
 #else
 	//glUniform1i(basicShader("AccumulatorLPV"), 0);
 	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
