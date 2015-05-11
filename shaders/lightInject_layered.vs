@@ -21,6 +21,16 @@ ivec3 convertPointToGridIndex(vec3 pos, vec3 normal) {
 	return ivec3((pos - v_min) / f_cellSize + 0.5 * normal);
 }
 
+bool isInside(ivec3 i) {
+	if(i.x < 0 || i.x > int(v_gridDim.x))
+		return false;
+	if(i.y < 0 || i.y > int(v_gridDim.y))
+		return false;
+	if(i.z < 0 || i.z > int(v_gridDim.z))
+		return false;
+	return true;
+}
+
 void main()
 {
 	ivec2 v_RSMCoords = ivec2(gl_VertexID % i_RSMsize, gl_VertexID / i_RSMsize);
@@ -31,7 +41,13 @@ void main()
 
 	v_volumeCellIndex = convertPointToGridIndex(v_posFromRSM,v_normalFromRSM);
 
-	//gl_Position =  vec4((v_volumeCellIndex.x/v_gridDim.x)*2 - 1.0,(v_volumeCellIndex.y/v_gridDim.y)*2 - 1.0,0.0,1.0);
 	vec2 screenPos = (vec2(v_volumeCellIndex.xy) + 0.5) / v_gridDim.xy * 2.0 - 1.0;
+
+	/*if(!isInside(v_volumeCellIndex)) {
+		gl_Position = vec4(vec2(v_gridDim.x * 2.0, v_gridDim.y * 2.0) , 0.0,1.0);
+	} else {
+		gl_Position = vec4(screenPos , 0.0,1.0);
+	}*/
+
 	gl_Position = vec4(screenPos , 0.0,1.0);
 }

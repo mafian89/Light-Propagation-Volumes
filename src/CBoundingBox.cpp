@@ -34,7 +34,7 @@ float CBoundingBox::getCellSize() {
 }
 
 Grid CBoundingBox::getGrid() {
-	return Grid(max, min, 1.0f);
+	return Grid(max, min, 1.0f,0);
 };
 
 void CBoundingBox::calculatePointDimensions() {

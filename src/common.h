@@ -36,12 +36,12 @@
 #define SHADOWMAPSIZE 2048
 #define RSMSIZE 512
 #define TEXTUREDIR "../textures/"
-#define MAX_GRID_SIZE 64
+#define MAX_GRID_SIZE 32
 #define VPL_COUNT RSMSIZE*RSMSIZE
 #define DEG2RAD (M_PI / 180.0f)
 
 //#define VPL_DEBUG
 #define ORTHO_PROJECTION
 #define USESAMPLER3D
-#define PROPAGATION_STEPS 12
+#define PROPAGATION_STEPS 8
 #define CASCADES 3

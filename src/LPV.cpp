@@ -78,12 +78,21 @@ CFboManager propagationFBOs[CASCADES][PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
 
+glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
+float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
+
 int level_global = 0;
 
 void printVector(glm::vec3 v);
+void updateGrid();
 
 //#define CTV
 //#define W2
+
+/**
+!!!!! IMPORTANT CHANGES !!!!!
+05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_REPEAT
+*/
 
 void initializeVPLsInvocations() {
 	////////////////////////////////////////////////////
@@ -195,9 +204,9 @@ void initPropStepTextures() {
 			string texNameG = "GLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			string texNameB = "BLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			//std::cout << texName << std::endl;
-			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
+			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
+			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
 			propTextures[l][i].red = texManager[texNameR];
 			propTextures[l][i].green = texManager[texNameG];
 			propTextures[l][i].blue = texManager[texNameB];
@@ -242,15 +251,15 @@ void initInjectFBOs() {
 		string texNameGaccum = "GAccumulatorLPV_cascade_" + std::to_string(i);
 		string texNameBaccum = "BAccumulatorLPV_cascade_" + std::to_string(i);
 
-		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
-		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
 
-		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_EDGE);
+		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_REPEAT);
 
-		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
-		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_EDGE);
+		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
 
 		injectCascadeTextures[i].red = texManager[texNameR];
 		injectCascadeTextures[i].green = texManager[texNameG];
@@ -559,8 +568,8 @@ void Initialize(SDL_Window * w) {
 	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL, glm::vec3(1.0,0.0,0.0));
 
 	if (CASCADES >= 3) {
-		levels[1] = Grid(levels[0], 0.75);
-		levels[2] = Grid(levels[0], 0.5);
+		levels[1] = Grid(levels[0], 0.75,1);
+		levels[2] = Grid(levels[0], 0.5,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -866,6 +875,9 @@ void Display() {
 	glm::mat3 mn_light = glm::transpose(glm::inverse(glm::mat3(v_light*m)));
 
 	glm::vec3 lightPosition = light->getPosition();
+
+	//Update grid
+	updateGrid();
 	/*
 	////////////////////////////////////////////////////
 	// FILL THE G-BUFFER
@@ -920,7 +932,6 @@ void Display() {
 	mesh->render();
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 
 	////////////////////////////////////////////////////
 	// LIGHT INJECT
@@ -1082,15 +1093,22 @@ void Display() {
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
 
+	//if (b_useLayeredFill) {
+	//	for (int l = 0; l < CASCADES; l++) {
+	//		propagate_layered(l);
+	//	}
+	//}
+	//else {
+	//	for (int l = 0; l < CASCADES; l++) {
+	//		propagate(l);
+	//	}
+	//}
+	
 	if (b_useLayeredFill) {
-		for (int l = 0; l < CASCADES; l++) {
-			propagate_layered(l);
-		}
+		propagate_layered(level_global);
 	}
 	else {
-		for (int l = 0; l < CASCADES; l++) {
-			propagate(l);
-		}
+		propagate(level_global);
 	}
 
 	vMin = levels[level_global].getMin();
@@ -1233,9 +1251,11 @@ void printVector(glm::vec3 v) {
 	std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
 }
 
-void updateGrid(int level, glm::vec3 dir) {
-	/*levels[level].translateGrid(controlCamera->getPosition());
-	vMin = levels[level].getMin();*/
+void updateGrid() {
+	levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	//vMin = levels[level].getMin();
 	//printVector(vMin);
 }
 
@@ -1387,7 +1407,7 @@ int main() {
 					controlCamera->moved = true;
 					controlCamera->computeMatricesFromInputs();
 					controlCamera->moved = false;
-					updateGrid(0,controlCamera->getDirection());
+					updateGrid();
 				}
 			}
 
@@ -1404,6 +1424,12 @@ int main() {
 						f_indirectAttenuation -= 0.1;
 					}
 				}
+				if (event.key.keysym.sym == SDLK_r){
+					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
+					controlCamera->moved = true;
+					controlCamera->computeMatricesFromInputs();
+					controlCamera->moved = false;
+				}
 				if (event.key.keysym.sym == SDLK_l) {
 					b_useLayeredFill = !b_useLayeredFill;
 				}
@@ -1417,19 +1443,19 @@ int main() {
 		keys = SDL_GetKeyboardState(NULL);
 		if (keys[SDL_SCANCODE_W]) {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getDirection() * movementSpeed * ftime));
-			updateGrid(0, controlCamera->getDirection());
+			updateGrid();
 		}
 		else if (keys[SDL_SCANCODE_S]) {
 			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getDirection() * movementSpeed * ftime));
-			updateGrid(0, controlCamera->getDirection());
+			updateGrid();
 		}
 		else if (keys[SDL_SCANCODE_A]) {
 			controlCamera->setPosition(controlCamera->getPosition() - (controlCamera->getRight() * movementSpeed * ftime));
-			updateGrid(0, controlCamera->getDirection());
+			updateGrid();
 		}
 		else if (keys[SDL_SCANCODE_D]) {
 			controlCamera->setPosition(controlCamera->getPosition() + (controlCamera->getRight() * movementSpeed * ftime));
-			updateGrid(0, controlCamera->getDirection());
+			updateGrid();
 		}
 		else if (keys[SDL_SCANCODE_KP_8]) {
 			light->setPosition(light->getPosition() + (glm::vec3(0, 1, 0)* movementSpeed * 2.0f * ftime));
