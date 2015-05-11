@@ -6,8 +6,8 @@ DebugDrawer::DebugDrawer()
 
 }
 
-DebugDrawer::DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std::vector<glm::vec2> *uv, const std::vector<float> *i)
-: useIndicies(true), useUv(true), mode(mode) {
+DebugDrawer::DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std::vector<glm::vec2> *uv, const std::vector<float> *i, glm::vec3 color)
+: useIndicies(true), useUv(true), mode(mode), color(color) {
 
 	if (p != NULL) {
 		this->p = *p;
@@ -30,9 +30,9 @@ DebugDrawer::DebugDrawer(GLenum mode, const std::vector<glm::vec3> *p, const std
 
 	//std::cout << useUv << " " << useIndicies << " " << this->p.front().x << "," << this->p.front().y << "," << this->p.front().z << std::endl;
 	//std::cout << sizeof(float)* 3 << " vs " << sizeof(glm::vec3) << std::endl;
-	std::cout << this->p.size() * sizeof(glm::vec3) << " + " 
-		<< this->uv.size() * sizeof(glm::vec2) 
-		<< " = " << this->p.size() * sizeof(glm::vec3) + this->uv.size() * sizeof(glm::vec2) << std::endl;
+	//std::cout << this->p.size() * sizeof(glm::vec3) << " + " 
+	//	<< this->uv.size() * sizeof(glm::vec2) 
+	//	<< " = " << this->p.size() * sizeof(glm::vec3) + this->uv.size() * sizeof(glm::vec2) << std::endl;
 }
 
 void DebugDrawer::setVPMatrix(glm::mat4 vp) {
@@ -47,6 +47,7 @@ void DebugDrawer::draw(){
 
 	this->s->Use();
 	glUniformMatrix4fv((*s)("vp"), 1, GL_FALSE, glm::value_ptr(vp));
+	glUniform3f((*s)("color"), color.x, color.y, color.z);
 
 	//Draw
 	glDrawArrays(mode, 0, p.size());
@@ -74,6 +75,7 @@ void DebugDrawer::setUpShaders() {
 	//Create uniforms and attributes (filled later)
 	s->AddAttribute("vPosition");
 	s->AddUniform("vp");
+	s->AddUniform("color");
 
 	//Generate VAO
 	glGenVertexArrays(1, &VAO);

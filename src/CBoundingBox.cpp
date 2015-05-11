@@ -1,4 +1,5 @@
 #include "CBoundingBox.h"
+#include "Grid.h"
 
 CBoundingBox::CBoundingBox() : min(glm::vec3(0.0)), max(glm::vec3(0.0)) {
 
@@ -32,57 +33,29 @@ float CBoundingBox::getCellSize() {
 	return this->cellSize;
 }
 
+Grid CBoundingBox::getGrid() {
+	return Grid(max, min, 1.0f,0);
+};
+
 void CBoundingBox::calculatePointDimensions() {
 	//std::cout << max.x - min.x << ", " << max.y - min.y << ", " << max.z - min.z << std::endl;
 
-	std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
-	std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
+	//volSize = max - min;
+	//float maxLength = std::max(volSize.x, std::max(volSize.y, volSize.z));
+	//cellSize = maxLength / MAX_GRID_SIZE;
 
-	volSize = max - min;
-	float maxLength = std::max(volSize.x, std::max(volSize.y, volSize.z));
-	cellSize = maxLength / MAX_GRID_SIZE;
+	//std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
+	//std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
+	//std::cout << "Cellsize: " << cellSize << std::endl;
 
-	width = int(volSize.x / cellSize + 0.5f);
-	height = int(volSize.y / cellSize + 0.5f);
-	depth = int(volSize.z / cellSize + 0.5f);
+	//width = int(volSize.x / cellSize + 0.5f);
+	//height = int(volSize.y / cellSize + 0.5f);
+	//depth = int(volSize.z / cellSize + 0.5f);
 
 	//width = MAX_GRID_SIZE;
 	//height = MAX_GRID_SIZE;
 	//depth = MAX_GRID_SIZE;
 
-	//glm::vec3 tmpPoint = glm::vec3(-29.656474, -2.739784, -18.599974) + glm::vec3(2.0)*glm::vec3(cellSize);
-	//glm::vec3 tmpPoint = min;
-	//for (int i = 0; i < 5; i++) {
-	//	std::cout << "tmpPoint: (" << tmpPoint.x << "," << tmpPoint.y << "," << tmpPoint.z << ")" << std::endl;
-	//	std::cout << int((tmpPoint.x - min.x) / cellSize) << std::endl;
-	//	std::cout << int((tmpPoint.y - min.y) / cellSize) << std::endl;
-	//	std::cout << int((tmpPoint.z - min.z) / cellSize) << std::endl;
-	//	std::cout << int((tmpPoint.x - min.x) / cellSize) + int(depth) * int((tmpPoint.x - min.x) / cellSize) << std::endl;
-	//	tmpPoint += glm::vec3(cellSize/2.0);
-	//}
-
-
-	//std::cout << maxLength << " cellsize: " << cellSize << std::endl;
-	//std::cout << "volSize: " << volSize.x << "x" << volSize.y << "x" << volSize.z << std::endl;
-	//std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
-
-	//width = int(std::ceilf(volSize.x / cellSize));
-	//height = int(std::ceilf(volSize.y / cellSize));
-	//depth = int(std::ceilf(volSize.z / cellSize));
-	//std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
-
-	//width = int(volSize.x / cellSize);
-	//height = int(volSize.y / cellSize);
-	//depth = int(volSize.z / cellSize);
-	//std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
-
-
-	//width = (volSize.x / cellSize);
-	//height = (volSize.y / cellSize);
-	//depth = (volSize.z / cellSize);
-	//std::cout << width << "x" << height << "x" << depth << " = " << width * height * depth << std::endl;
-
-	//std::cout << int(28.1) << " " << int(28.5) << " " << int(28.9) << std::endl;
 	/*
 
 	--FRONT--
