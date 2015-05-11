@@ -565,7 +565,9 @@ void Initialize(SDL_Window * w) {
 	cellSize = levels[0].getCellSize();
 	vMin = levels[0].getMin();
 
-	dd = new DebugDrawer(GL_LINE_STRIP, &(mesh->getBoundingBox()->getDebugDrawPoints()), NULL, NULL, glm::vec3(1.0,0.0,0.0));
+	CBoundingBox * bb_l0 = new CBoundingBox(levels[0].getMin(), levels[0].getMax());
+	dd = new DebugDrawer(GL_LINE_STRIP, &(bb_l0->getDebugDrawPoints()), NULL, NULL, glm::vec3(1.0, 0.0, 0.0));
+	delete bb_l0;
 
 	if (CASCADES >= 3) {
 		levels[1] = Grid(levels[0], 0.75,1);
@@ -894,7 +896,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-
+	
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -1113,7 +1115,7 @@ void Display() {
 
 	vMin = levels[level_global].getMin();
 	cellSize = levels[level_global].getCellSize();
-
+	
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
 	////////////////////////////////////////////////////
@@ -1124,7 +1126,7 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	basicShader.Use();
-
+	
 #ifdef USESAMPLER3D
 	//glUniform1i(basicShader("AccumulatorLPV"), 3);
 	//glActiveTexture(GL_TEXTURE3);
@@ -1167,14 +1169,18 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-
-	dd->setVPMatrix(mvp);
+	
+	glm::mat4 m0 = levels[0].getModelMatrix();
+	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
+	dd->setVPMatrix(vp * m0);
 	dd->draw();
 	if (CASCADES >= 3) {
+		//glm::mat4 m1 = levels[1].getModelMatrix();
+		//glm::mat4 m2 = levels[2].getModelMatrix();
 		dd_l1->setVPMatrix(mvp);
-		dd_l1->draw();
+		//dd_l1->draw();
 		dd_l2->setVPMatrix(mvp);
-		dd_l2->draw();
+		//dd_l2->draw();
 	}
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW

@@ -29,21 +29,31 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	glm::vec3 newFaceCenter = frontFaceCenter + faceCenterToPos;
 	glm::vec3 newMin = newFaceCenter + tmpCenterToMin;*/
 
-		glm::vec3 centerToDir = pos * glm::vec3(0.8) * dir - center;
-		glm::vec3 newCenter = center + centerToDir; //translate
-		glm::vec3 newMin = newCenter + centerToMin;
+	//Model matrix
+	glm::mat4 model = glm::translate(pos);
+	glm::vec4 newCenter = model * glm::vec4(center, 1.0);
 
-		//glm::vec3 tmpCenter = (max - min) / glm::vec3(2.0);
-		//glm::vec3 tmpCenterToMin = min - tmpCenter;
+	//glm::vec3 centerToDir = pos  - center;
+	//glm::vec3 newCenter = center + centerToDir; //translate
+	//Snap to multiples of grid size
+	//....
+	//New volume's center
+	glm::vec3 newMin = glm::vec3(newCenter.x, newCenter.y, newCenter.z) + centerToMin;
 
+	//glm::vec3 tmpCenter = (max - min) / glm::vec3(2.0);
+	//glm::vec3 tmpCenterToMin = min - tmpCenter;
 
+	//std::cout <<"++++++++ " << "Level: " << level <<" +++++++\n";
+	//std::cout << "pos: " << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
+	//std::cout << "center: " << center.x << ", " << center.y << ", " << center.z << std::endl;
+	//std::cout << "newCenter: " << newCenter.x << ", " << newCenter.y << ", " << newCenter.z << std::endl;
+	//std::cout << "min: " << min.x << ", " << min.y << ", " << min.z << std::endl;
+	//std::cout << "newMin: " << newMin.x << ", " << newMin.y << ", " << newMin.z << std::endl;
+	//std::cout << "centerToMin: " << centerToMin.x << ", " << centerToMin.y << ", " << centerToMin.z << std::endl;
 
-		//std::cout << origMin.x << ", " << origMin.y << ", " << origMin.z << std::endl;
-		//std::cout << newMin.x << ", " << newMin.y << ", " << newMin.z << std::endl;
-		//std::cout << centerToMin.x << ", " << centerToMin.y << ", " << centerToMin.z << std::endl;
-
-		min = newMin;
-
+	min = newMin;
+	m = model;
+	//center = glm::vec3(newCenter);
 
 	//minToDir *= glm::vec3(cellSize); //snap??
 	//min.x = min.x + glm::vec3(0.1).x*minToDir.x;

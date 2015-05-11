@@ -15,20 +15,17 @@ public:
 	float getScale() { return scale; };
 	float getCellSize() { return cellSize; };
 	void translateGrid(glm::vec3 pos, glm::vec3 dir);
+	glm::mat4 getModelMatrix() { return m; };
 
 private:
 	void setUp() {
 		max *= scale;
 		min *= scale;
 		glm::vec3 volSize = max - min;
-		center = volSize / glm::vec3(2.0f);
-		centerToMin = min - center;
+		//center = volSize / glm::vec3(2.0f);
+		//centerToMin = min - center;
 		float maxLength = std::max(volSize.x, std::max(volSize.y, volSize.z));
 		cellSize = maxLength / MAX_GRID_SIZE;
-
-		std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
-		std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
-		std::cout << "Cellsize: " << cellSize << std::endl;
 
 		//dimensions.x = int(volSize.x / cellSize + 0.5f);
 		//dimensions.y = int(volSize.y / cellSize + 0.5f);
@@ -37,6 +34,9 @@ private:
 		dimensions.x = MAX_GRID_SIZE;
 		dimensions.y = MAX_GRID_SIZE;
 		dimensions.z = MAX_GRID_SIZE;
+
+		if (cellSize > 2.5)
+			cellSize = 2.5;
 		
 		if (level == 0) {
 
@@ -53,10 +53,15 @@ private:
 			max.y += (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
 			max.z += (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
 
-			//volSize = max - min;
-			//center = volSize / glm::vec3(2.0f);
-			//centerToMin = min - center;
 		}
+
+		volSize = max - min;
+		center = volSize / glm::vec3(2.0f);
+		centerToMin = min - center;
+
+		std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
+		std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
+		std::cout << "Cellsize: " << cellSize << std::endl;
 
 		//return ivec3((pos - v_min) / f_cellSize + 0.5 * normal);
 
@@ -70,11 +75,12 @@ private:
 		//std::cout << "Grid [max+50]: " << test.x << "," << test.y << "," << test.z << " isInside? " << isInside(test) << std::endl;
 
 	};
-	glm::vec3 min,max,center,offset,centerToMin;
+	glm::vec3 min, max , center, offset, centerToMin;
 	glm::vec3 origMin, origMax;
 	glm::ivec3 dimensions;
 	float scale, cellSize;
 	unsigned int level;
+	glm::mat4 m;
 
 	//bool isInside(glm::ivec3 i) {
 	//	if (i.x < 0 || i.x > int(dimensions.x))
