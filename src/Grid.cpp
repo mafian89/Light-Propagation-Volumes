@@ -20,8 +20,8 @@ Grid::~Grid() {
 }
 
 void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
-	//Model matrix
-	glm::mat4 model = glm::translate(pos);
+	//Model matrix - not sure about that multiplicatiob by 0.5
+	glm::mat4 model = glm::translate(pos * glm::vec3(1));
 	glm::vec4 newCenter = model * glm::vec4(center, 1.0);
 
 	//glm::vec3 centerToDir = pos  - center;
@@ -32,7 +32,6 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	int snapX = static_cast<int> (centerToNewCenter.x / cellSize + 0.5);
 	int snapY = static_cast<int> (centerToNewCenter.y / cellSize + 0.5);
 	int snapZ = static_cast<int> (centerToNewCenter.z / cellSize + 0.5);
-	//std::cout << "snapX: " << snapX << " snapY: " << snapY << " snapZ: " << snapZ << std::endl;
 	//New volume's center
 	//glm::vec3 newMin = glm::vec3(newCenter.x, newCenter.y, newCenter.z) + centerToMin;
 	glm::vec3 newMin = glm::vec3(center.x + (snapX)*cellSize, center.y + (snapY)*cellSize, center.z + (snapZ)*cellSize) + centerToMin;

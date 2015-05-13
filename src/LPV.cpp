@@ -82,6 +82,8 @@ glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
 float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
 int level_global = 0;
+bool b_movableLPV = true;
+glm::mat4 lastm0, lastm1, lastm2;
 
 void printVector(glm::vec3 v);
 void updateGrid();
@@ -1170,17 +1172,32 @@ void Display() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
 	
-	glm::mat4 m0 = levels[0].getModelMatrix();
+	glm::mat4 m0 = glm::mat4(1.0);
+	glm::mat4 m1 = glm::mat4(1.0);
+	glm::mat4 m2 = glm::mat4(1.0);
+	if (b_movableLPV){
+		m0 = levels[0].getModelMatrix();
+		if (CASCADES >= 3) {
+			m1 = levels[1].getModelMatrix();
+			m2 = levels[2].getModelMatrix();
+		}
+		lastm0 = m0;
+		lastm1 = m1;
+		lastm2 = m2;
+	}
+	else {
+		m0 = lastm0;
+		m1 = lastm1;
+		m2 = lastm2;
+	}
 	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
 	dd->setVPMatrix(vp * m0);
 	//dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
 	if (CASCADES >= 3) {
-		glm::mat4 m1 = levels[1].getModelMatrix();
-		glm::mat4 m2 = levels[2].getModelMatrix();
-		dd_l1->setVPMatrix(mvp);
+		dd_l1->setVPMatrix(vp * m1);
 		dd_l1->draw();
-		dd_l2->setVPMatrix(mvp);
+		dd_l2->setVPMatrix(vp * m2);
 		dd_l2->draw();
 	}
 	////////////////////////////////////////////////////
@@ -1259,9 +1276,11 @@ void printVector(glm::vec3 v) {
 }
 
 void updateGrid() {
-	levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-	levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-	levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	if (b_movableLPV) {
+		levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+		levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+		levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	}
 	//vMin = levels[level].getMin();
 	//printVector(vMin);
 }
@@ -1443,6 +1462,10 @@ int main() {
 						level_global -= 1;
 						std::cout << level_global << std::endl;
 					}
+				}
+
+				if (event.key.keysym.sym == SDLK_m) {
+					b_movableLPV = !b_movableLPV;
 				}
 				if (event.key.keysym.sym == SDLK_r){
 					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
