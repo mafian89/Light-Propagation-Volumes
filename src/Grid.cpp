@@ -35,9 +35,28 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	//std::cout << "snapX: " << snapX << " snapY: " << snapY << " snapZ: " << snapZ << std::endl;
 	//New volume's center
 	//glm::vec3 newMin = glm::vec3(newCenter.x, newCenter.y, newCenter.z) + centerToMin;
-	glm::vec3 newMin = glm::vec3(center.x + abs(snapX)*cellSize, center.y + abs(snapY)*cellSize, center.z + abs(snapZ)*cellSize) + centerToMin;
+	glm::vec3 newMin = glm::vec3(center.x + (snapX)*cellSize, center.y + (snapY)*cellSize, center.z + (snapZ)*cellSize) + centerToMin;
+	//glm::vec3 newMax = glm::vec3(center.x + (snapX)*cellSize, center.y + (snapY)*cellSize, center.z + (snapZ)*cellSize) + centerToMax;
+	
+	glm::vec3 displacement = glm::vec3(0.9)*dir; //80% od direction
+	glm::mat4 modelDispace = glm::translate(displacement); //translate
+	glm::vec4 displacedMin = modelDispace * glm::vec4(newMin, 1.0); //new position of minimum
+	//calculate difference between old and displaced min and then snap it to multiples of grid size
+	glm::vec3 minToDisplacedMin = glm::vec3(displacedMin) - newMin;
+	int snapMinX = static_cast<int> (minToDisplacedMin.x / cellSize + 0.5);
+	int snapMinY = static_cast<int> (minToDisplacedMin.y / cellSize + 0.5);
+	int snapMinZ = static_cast<int> (minToDisplacedMin.z / cellSize + 0.5);
+	//newMin = glm::vec3(displacedMin.x + snapMinX*cellSize, displacedMin.y + snapMinY*cellSize, displacedMin.z + snapMinZ*cellSize);
 
-	//std::cout <<"++++++++ " << "Level: " << level <<" +++++++\n";
+	/*if ((snapMinX > 0 || snapMinY > 0 || snapMinZ > 0)) {
+		std::cout << "++++++++ " << "Level: " << level << " +++++++\n";
+		std::cout << "newMin.x: " << newMin.x << " newMin.x + snapMinX*cellSize: " << newMin.x + snapMinX*cellSize << std::endl;
+		std::cout << "newMin.y: " << newMin.y << " newMin.y + snapMinY*cellSize: " << newMin.y + snapMinY*cellSize << std::endl;
+		std::cout << "newMin.z: " << newMin.z << " newMin.z + snapMinZ*cellSize: " << newMin.z + snapMinZ*cellSize << std::endl;
+		std::cout << "Displacement: " << displacement.x << ", " << displacement.y << ", " << displacement.z << std::endl;
+		std::cout << "snapMinX: " << snapMinX << " snapMinY: " << snapMinY << " snapMinZ " << snapMinZ << std::endl;
+	}*/
+	//std::cout << "++++++++ " << "Level: " << level << " +++++++\n";
 	//std::cout << "pos: " << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
 	//std::cout << "center: " << center.x << ", " << center.y << ", " << center.z << std::endl;
 	//std::cout << "newCenter: " << newCenter.x << ", " << newCenter.y << ", " << newCenter.z << std::endl;
@@ -45,7 +64,8 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	//std::cout << "newMin: " << newMin.x << ", " << newMin.y << ", " << newMin.z << std::endl;
 	//std::cout << "centerToMin: " << centerToMin.x << ", " << centerToMin.y << ", " << centerToMin.z << std::endl;
 
-	min = newMin;
+	min = newMin * scale;
+	max *= scale;
 	m = model;
 	//center = glm::vec3(newCenter);
 }

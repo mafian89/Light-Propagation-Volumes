@@ -13,6 +13,7 @@ public:
 		color = c;
 	}
 	void draw();
+	void updateVBO(const std::vector<glm::vec3> *p);
 private:
 	GLenum mode;
 	glm::vec3 color;

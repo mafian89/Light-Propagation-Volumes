@@ -81,7 +81,7 @@ CFboManager geometryInjectCascadeFBOs[CASCADES];
 glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
 float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
-int level_global = 0;
+int level_global = 2;
 
 void printVector(glm::vec3 v);
 void updateGrid();
@@ -1173,6 +1173,7 @@ void Display() {
 	glm::mat4 m0 = levels[0].getModelMatrix();
 	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
 	dd->setVPMatrix(vp * m0);
+	//dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
 	if (CASCADES >= 3) {
 		//glm::mat4 m1 = levels[1].getModelMatrix();

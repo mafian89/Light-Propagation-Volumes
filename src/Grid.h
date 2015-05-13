@@ -19,8 +19,8 @@ public:
 
 private:
 	void setUp() {
-		max *= scale;
-		min *= scale;
+		//max *= scale;
+		//min *= scale;
 		glm::vec3 volSize = max - min;
 		//center = volSize / glm::vec3(2.0f);
 		//centerToMin = min - center;
@@ -38,7 +38,7 @@ private:
 		if (cellSize > 2.5)
 			cellSize = 2.5;
 		
-		if (level == 0) {
+		if (level == 0 && cellSize < 2.5) {
 
 			origMin = min;
 			origMax = max;
@@ -58,6 +58,7 @@ private:
 		volSize = max - min;
 		center = volSize / glm::vec3(2.0f);
 		centerToMin = min - center;
+		centerToMax = max - center;
 
 		std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
 		std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
@@ -75,7 +76,7 @@ private:
 		//std::cout << "Grid [max+50]: " << test.x << "," << test.y << "," << test.z << " isInside? " << isInside(test) << std::endl;
 
 	};
-	glm::vec3 min, max , center, offset, centerToMin;
+	glm::vec3 min, max , center, offset, centerToMin, centerToMax;
 	glm::vec3 origMin, origMax;
 	glm::ivec3 dimensions;
 	float scale, cellSize;
