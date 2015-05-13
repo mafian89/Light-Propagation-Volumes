@@ -81,7 +81,7 @@ CFboManager geometryInjectCascadeFBOs[CASCADES];
 glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
 float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
-int level_global = 2;
+int level_global = 0;
 
 void printVector(glm::vec3 v);
 void updateGrid();
