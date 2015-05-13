@@ -34,9 +34,9 @@ void main()
 {
 
 	//Discard pixels with really small normal
-	if( length( v_GSnormalFromRSM ) < 0.01 ) {
+	/*if( length( v_GSnormalFromRSM ) < 0.01 ) {
 		discard;
-	}
+	}*/
 
 	vec4 SHCoeffsR = evalCosineLobeToDir(v_GSnormalFromRSM) * v_GSfluxFromRSM.r;
 	vec4 SHCoeffsG = evalCosineLobeToDir(v_GSnormalFromRSM) * v_GSfluxFromRSM.g;

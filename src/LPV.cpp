@@ -91,7 +91,7 @@ void updateGrid();
 
 /**
 !!!!! IMPORTANT CHANGES !!!!!
-05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_REPEAT
+05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_CLAMP_TO_BORDER
 */
 
 void initializeVPLsInvocations() {
@@ -204,9 +204,9 @@ void initPropStepTextures() {
 			string texNameG = "GLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			string texNameB = "BLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			//std::cout << texName << std::endl;
-			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
-			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
-			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
+			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 			propTextures[l][i].red = texManager[texNameR];
 			propTextures[l][i].green = texManager[texNameG];
 			propTextures[l][i].blue = texManager[texNameB];
@@ -251,15 +251,15 @@ void initInjectFBOs() {
 		string texNameGaccum = "GAccumulatorLPV_cascade_" + std::to_string(i);
 		string texNameBaccum = "BAccumulatorLPV_cascade_" + std::to_string(i);
 
-		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 
 		injectCascadeTextures[i].red = texManager[texNameR];
 		injectCascadeTextures[i].green = texManager[texNameG];
@@ -570,8 +570,8 @@ void Initialize(SDL_Window * w) {
 	delete bb_l0;
 
 	if (CASCADES >= 3) {
-		levels[1] = Grid(levels[0], 0.75,1);
-		levels[2] = Grid(levels[0], 0.5,2);
+		levels[1] = Grid(levels[0], 0.5,1);
+		levels[2] = Grid(levels[1], 0.4,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -1176,12 +1176,12 @@ void Display() {
 	//dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
 	if (CASCADES >= 3) {
-		//glm::mat4 m1 = levels[1].getModelMatrix();
-		//glm::mat4 m2 = levels[2].getModelMatrix();
+		glm::mat4 m1 = levels[1].getModelMatrix();
+		glm::mat4 m2 = levels[2].getModelMatrix();
 		dd_l1->setVPMatrix(mvp);
-		//dd_l1->draw();
+		dd_l1->draw();
 		dd_l2->setVPMatrix(mvp);
-		//dd_l2->draw();
+		dd_l2->draw();
 	}
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
@@ -1429,6 +1429,19 @@ int main() {
 				if (event.key.keysym.sym == SDLK_v) {
 					if (f_indirectAttenuation >= 0.2) {
 						f_indirectAttenuation -= 0.1;
+					}
+				}
+
+				if (event.key.keysym.sym == SDLK_x) {
+					if (level_global < 2) {
+						level_global += 1;
+						std::cout << level_global << std::endl;
+					}
+				}
+				if (event.key.keysym.sym == SDLK_z) {
+					if (level_global > 0) {
+						level_global -= 1;
+						std::cout << level_global << std::endl;
 					}
 				}
 				if (event.key.keysym.sym == SDLK_r){

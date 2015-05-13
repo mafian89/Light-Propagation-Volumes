@@ -1,8 +1,8 @@
 #include "Grid.h"
 
 Grid::Grid(const Grid & old, float scale, unsigned int level) {
-	this->max = old.origMax;
-	this->min = old.origMin;
+	this->max = old.max;
+	this->min = old.min;
 	this->scale = scale;
 	this->level = level;
 	setUp();
@@ -46,7 +46,7 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	int snapMinX = static_cast<int> (minToDisplacedMin.x / cellSize + 0.5);
 	int snapMinY = static_cast<int> (minToDisplacedMin.y / cellSize + 0.5);
 	int snapMinZ = static_cast<int> (minToDisplacedMin.z / cellSize + 0.5);
-	//newMin = glm::vec3(displacedMin.x + snapMinX*cellSize, displacedMin.y + snapMinY*cellSize, displacedMin.z + snapMinZ*cellSize);
+	newMin = glm::vec3(displacedMin.x + snapMinX*cellSize, displacedMin.y + snapMinY*cellSize, displacedMin.z + snapMinZ*cellSize);
 
 	/*if ((snapMinX > 0 || snapMinY > 0 || snapMinZ > 0)) {
 		std::cout << "++++++++ " << "Level: " << level << " +++++++\n";
@@ -64,8 +64,8 @@ void Grid::translateGrid(glm::vec3 pos, glm::vec3 dir) {
 	//std::cout << "newMin: " << newMin.x << ", " << newMin.y << ", " << newMin.z << std::endl;
 	//std::cout << "centerToMin: " << centerToMin.x << ", " << centerToMin.y << ", " << centerToMin.z << std::endl;
 
-	min = newMin * scale;
-	max *= scale;
+	min = newMin;// *scale;
+	//max *= scale;
 	m = model;
 	//center = glm::vec3(newCenter);
 }

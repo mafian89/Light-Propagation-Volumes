@@ -19,8 +19,8 @@ public:
 
 private:
 	void setUp() {
-		//max *= scale;
-		//min *= scale;
+		max *= scale;
+		min *= scale;
 		glm::vec3 volSize = max - min;
 		//center = volSize / glm::vec3(2.0f);
 		//centerToMin = min - center;
@@ -38,13 +38,13 @@ private:
 		if (cellSize > 2.5)
 			cellSize = 2.5;
 		
-		if (level == 0 && cellSize < 2.5) {
+		if (cellSize < 2.5) {
 
-			origMin = min;
-			origMax = max;
+			//origMin = min;
+			//origMax = max;
 
-			
-			cellSize *= 1.5;
+			if(level == 0)
+				cellSize *= 1.4;
 			min.x -= (MAX_GRID_SIZE * cellSize - max.x) / 4.0;
 			min.y -= (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
 			min.z -= (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
