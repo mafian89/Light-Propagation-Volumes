@@ -573,7 +573,7 @@ void Initialize(SDL_Window * w) {
 
 	if (CASCADES >= 3) {
 		levels[1] = Grid(levels[0], 0.5,1);
-		levels[2] = Grid(levels[1], 0.4,2);
+		levels[2] = Grid(levels[0], 0.25,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -863,6 +863,7 @@ void Display() {
 	//glViewport(0,0,width/2,height/2);
 
 	//Camera update
+	//controlCamera->setPosition(levels[0].getCenter());
 	controlCamera->computeMatricesFromInputs();
 	glm::mat4 m = glm::mat4(1.0f);
 	//m = glm::scale(m, glm::vec3(5.0f));
@@ -1171,7 +1172,7 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	
+	/*
 	glm::mat4 m0 = glm::mat4(1.0);
 	glm::mat4 m1 = glm::mat4(1.0);
 	glm::mat4 m2 = glm::mat4(1.0);
@@ -1189,15 +1190,17 @@ void Display() {
 		m0 = lastm0;
 		m1 = lastm1;
 		m2 = lastm2;
-	}
+	}*/
 	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
-	dd->setVPMatrix(vp * m0);
-	//dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
+	dd->setVPMatrix(mvp);
+	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
 	if (CASCADES >= 3) {
-		dd_l1->setVPMatrix(vp * m1);
+		dd_l1->setVPMatrix(mvp);
+		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
 		dd_l1->draw();
-		dd_l2->setVPMatrix(vp * m2);
+		dd_l2->setVPMatrix(mvp);
+		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
 		dd_l2->draw();
 	}
 	////////////////////////////////////////////////////

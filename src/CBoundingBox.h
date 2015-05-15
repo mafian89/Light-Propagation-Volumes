@@ -56,7 +56,6 @@ public:
 		glm::vec3 p2 = glm::vec3(_max.x, _max.y, _max.z);
 		glm::vec3 p3 = glm::vec3(_min.x, _min.y, _max.z);
 		glm::vec3 p4 = glm::vec3(_max.x, _min.y, _max.z);
-
 		/*
 
 		--BACK--

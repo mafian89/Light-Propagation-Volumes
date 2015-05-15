@@ -16,16 +16,26 @@ public:
 	float getCellSize() { return cellSize; };
 	void translateGrid(glm::vec3 pos, glm::vec3 dir);
 	glm::mat4 getModelMatrix() { return m; };
+	glm::vec3 getCenter() { return center; }
 
 private:
 	void setUp() {
-		max *= scale;
+		/*max *= scale;
 		min *= scale;
 		glm::vec3 volSize = max - min;
-		//center = volSize / glm::vec3(2.0f);
-		//centerToMin = min - center;
 		float maxLength = std::max(volSize.x, std::max(volSize.y, volSize.z));
-		cellSize = maxLength / MAX_GRID_SIZE;
+		cellSize = maxLength / MAX_GRID_SIZE;*/
+
+		center = glm::vec3(0);
+		cellSize = 2.5 * scale;
+		min = center - glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
+		max = center + glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
+		centerToMin = min - center;
+		centerToMax = max - center;
+
+		std::cout << "centerToMin: " << centerToMin.x << "," << centerToMin.y << "," << centerToMin.z << std::endl;
+		std::cout << "centerToMax: " << centerToMax.x << "," << centerToMax.y << "," << centerToMax.z << std::endl;
+		
 
 		//dimensions.x = int(volSize.x / cellSize + 0.5f);
 		//dimensions.y = int(volSize.y / cellSize + 0.5f);
@@ -35,33 +45,37 @@ private:
 		dimensions.y = MAX_GRID_SIZE;
 		dimensions.z = MAX_GRID_SIZE;
 
-		if (cellSize > 2.5)
-			cellSize = 2.5;
-		
-		if (cellSize < 2.5) {
+		//if (cellSize > 2.5)
+		//	cellSize = 2.5;
+		//
+		//if (cellSize <= 2.5) {
 
-			//origMin = min;
-			//origMax = max;
+		//	origMin = min;
+		//	origMax = max;
 
-			if(level == 0)
-				cellSize *= 1.4;
-			min.x -= (MAX_GRID_SIZE * cellSize - max.x) / 4.0;
-			min.y -= (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
-			min.z -= (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
+		//	if(level == 0)
+		//		cellSize *= 1.4;
+		//	min.x -= (MAX_GRID_SIZE * cellSize - max.x) / 2.0;
+		//	min.y -= (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
+		//	min.z -= (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
 
-			max.x += (MAX_GRID_SIZE * cellSize - max.x) / 4.0;
-			max.y += (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
-			max.z += (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
+		//	max.x += (MAX_GRID_SIZE * cellSize - max.x) / 2.0;
+		//	max.y += (MAX_GRID_SIZE * cellSize - max.y) / 2.0;
+		//	max.z += (MAX_GRID_SIZE * cellSize - max.z) / 2.0;
 
-		}
+		//}
 
-		volSize = max - min;
-		center = volSize / glm::vec3(2.0f);
+		/*volSize = max - min;
+		//center = volSize / glm::vec3(2.0f);
+		int halfSize = MAX_GRID_SIZE / 2;
+		glm::vec3 frontFaceCenter = glm::vec3(min.x + halfSize * cellSize, min.y + halfSize * cellSize, min.z);
+		center = frontFaceCenter;
 		centerToMin = min - center;
-		centerToMax = max - center;
+		centerToMax = max - center;*/
 
 		std::cout << "Max: " << max.x << "," << max.y << "," << max.z << std::endl;
 		std::cout << "Min: " << min.x << "," << min.y << "," << min.z << std::endl;
+		std::cout << "center: " << center.x << "," << center.y << "," << center.z << std::endl;
 		std::cout << "Cellsize: " << cellSize << std::endl;
 
 		//return ivec3((pos - v_min) / f_cellSize + 0.5 * normal);
