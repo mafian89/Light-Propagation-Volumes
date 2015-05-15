@@ -1194,11 +1194,11 @@ void Display() {
 	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
 	dd->setVPMatrix(mvp);
 	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
-	dd->draw();
+	//dd->draw();
 	if (CASCADES >= 3) {
 		dd_l1->setVPMatrix(mvp);
 		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
-		dd_l1->draw();
+		//dd_l1->draw();
 		dd_l2->setVPMatrix(mvp);
 		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
 		dd_l2->draw();
