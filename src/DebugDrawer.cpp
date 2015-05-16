@@ -88,7 +88,7 @@ void DebugDrawer::setUpShaders() {
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//Alocate buffer
 	//glBufferData(GL_ARRAY_BUFFER, this->p.size() * sizeof(glm::vec3) + this->uv.size() * sizeof(glm::vec2), NULL, GL_STATIC_DRAW);
-	glBufferData(GL_ARRAY_BUFFER, this->p.size() * sizeof(glm::vec3), NULL, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, this->p.size() * sizeof(glm::vec3), NULL, GL_DYNAMIC_DRAW);
 	//Fill VBO
 	glBufferSubData(GL_ARRAY_BUFFER, 0, this->p.size() * sizeof(glm::vec3), &p[0]);
 	//if (useUv)
@@ -113,6 +113,22 @@ void DebugDrawer::setUpShaders() {
 
 	glBindVertexArray(0);
 	
+}
+
+void DebugDrawer::updateVBO(const std::vector<glm::vec3> *p) {
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//glBufferSubData(GL_ARRAY_BUFFER, 0, this->p.size() * sizeof(glm::vec3), NULL);
+	//glBufferData(GL_ARRAY_BUFFER, this->p.size() * sizeof(glm::vec3), NULL, GL_DYNAMIC_DRAW);
+	float * buff = (float *)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+	for (int i = 0; i < p->size();i++) {
+		buff[i * 3] = p->at(i).x;
+		buff[i * 3 + 1] = p->at(i).y;
+		buff[i * 3 + 2] = p->at(i).z;
+	}
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 }
 
 DebugDrawer::~DebugDrawer() {

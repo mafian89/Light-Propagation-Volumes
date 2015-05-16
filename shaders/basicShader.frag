@@ -21,7 +21,7 @@
 	layout(early_fragment_tests )in;//turn on early depth tests
 #endif
 
-
+#define PI 3.1415926f
 
 //For MRT attachment 0
 layout(location = 0) out vec4 final_color;
@@ -106,7 +106,7 @@ void main()
 		);
 	#endif
 
-	vec3 finalLPVRadiance = f_indirectAttenuation*  max( lpvIntensity, 0 ); //* 4 / f_cellSize / f_cellSize
+	vec3 finalLPVRadiance = (f_indirectAttenuation / PI)*  max( lpvIntensity, 0 ) ;//* 4 / f_cellSize / f_cellSize;
 
 	//vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
 	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + kd * finalLPVRadiance;

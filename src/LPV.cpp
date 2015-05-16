@@ -82,6 +82,8 @@ glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
 float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
 int level_global = 0;
+bool b_movableLPV = true;
+glm::mat4 lastm0, lastm1, lastm2;
 
 void printVector(glm::vec3 v);
 void updateGrid();
@@ -91,7 +93,7 @@ void updateGrid();
 
 /**
 !!!!! IMPORTANT CHANGES !!!!!
-05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_REPEAT
+05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_CLAMP_TO_BORDER
 */
 
 void initializeVPLsInvocations() {
@@ -204,9 +206,9 @@ void initPropStepTextures() {
 			string texNameG = "GLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			string texNameB = "BLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			//std::cout << texName << std::endl;
-			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
-			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
-			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
+			texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+			texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+			texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 			propTextures[l][i].red = texManager[texNameR];
 			propTextures[l][i].green = texManager[texNameG];
 			propTextures[l][i].blue = texManager[texNameB];
@@ -251,15 +253,15 @@ void initInjectFBOs() {
 		string texNameGaccum = "GAccumulatorLPV_cascade_" + std::to_string(i);
 		string texNameBaccum = "BAccumulatorLPV_cascade_" + std::to_string(i);
 
-		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameR, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
-		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_REPEAT);
+		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameBaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 
 		injectCascadeTextures[i].red = texManager[texNameR];
 		injectCascadeTextures[i].green = texManager[texNameG];
@@ -570,8 +572,8 @@ void Initialize(SDL_Window * w) {
 	delete bb_l0;
 
 	if (CASCADES >= 3) {
-		levels[1] = Grid(levels[0], 0.75,1);
-		levels[2] = Grid(levels[0], 0.5,2);
+		levels[1] = Grid(levels[0], 0.5,1);
+		levels[2] = Grid(levels[0], 0.25,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -861,6 +863,7 @@ void Display() {
 	//glViewport(0,0,width/2,height/2);
 
 	//Camera update
+	//controlCamera->setPosition(levels[0].getCenter());
 	controlCamera->computeMatricesFromInputs();
 	glm::mat4 m = glm::mat4(1.0f);
 	//m = glm::scale(m, glm::vec3(5.0f));
@@ -1169,18 +1172,36 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	
-	glm::mat4 m0 = levels[0].getModelMatrix();
+	/*
+	glm::mat4 m0 = glm::mat4(1.0);
+	glm::mat4 m1 = glm::mat4(1.0);
+	glm::mat4 m2 = glm::mat4(1.0);
+	if (b_movableLPV){
+		m0 = levels[0].getModelMatrix();
+		if (CASCADES >= 3) {
+			m1 = levels[1].getModelMatrix();
+			m2 = levels[2].getModelMatrix();
+		}
+		lastm0 = m0;
+		lastm1 = m1;
+		lastm2 = m2;
+	}
+	else {
+		m0 = lastm0;
+		m1 = lastm1;
+		m2 = lastm2;
+	}*/
 	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
-	dd->setVPMatrix(vp * m0);
-	dd->draw();
+	dd->setVPMatrix(mvp);
+	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
+	//dd->draw();
 	if (CASCADES >= 3) {
-		//glm::mat4 m1 = levels[1].getModelMatrix();
-		//glm::mat4 m2 = levels[2].getModelMatrix();
 		dd_l1->setVPMatrix(mvp);
+		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
 		//dd_l1->draw();
 		dd_l2->setVPMatrix(mvp);
-		//dd_l2->draw();
+		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
+		dd_l2->draw();
 	}
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
@@ -1258,9 +1279,11 @@ void printVector(glm::vec3 v) {
 }
 
 void updateGrid() {
-	levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-	levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-	levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	if (b_movableLPV) {
+		levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+		levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+		levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+	}
 	//vMin = levels[level].getMin();
 	//printVector(vMin);
 }
@@ -1429,6 +1452,23 @@ int main() {
 					if (f_indirectAttenuation >= 0.2) {
 						f_indirectAttenuation -= 0.1;
 					}
+				}
+
+				if (event.key.keysym.sym == SDLK_x) {
+					if (level_global < 2) {
+						level_global += 1;
+						std::cout << level_global << std::endl;
+					}
+				}
+				if (event.key.keysym.sym == SDLK_z) {
+					if (level_global > 0) {
+						level_global -= 1;
+						std::cout << level_global << std::endl;
+					}
+				}
+
+				if (event.key.keysym.sym == SDLK_m) {
+					b_movableLPV = !b_movableLPV;
 				}
 				if (event.key.keysym.sym == SDLK_r){
 					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
