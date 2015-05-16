@@ -1,25 +1,18 @@
 #version 430
 
-#define USESAMPLER3D
+#define CASCADES 3
 
-#ifndef USESAMPLER3D
-	#extension GL_NV_shader_atomic_float : require
-	#extension GL_NV_shader_atomic_fp16_vector : require
-	#extension GL_NV_gpu_shader5 : require
-#endif
+uniform sampler3D RAccumulatorLPV_l0;
+uniform sampler3D GAccumulatorLPV_l0;
+uniform sampler3D BAccumulatorLPV_l0;
 
-#ifdef USESAMPLER3D
-	//uniform sampler3D AccumulatorLPV;
-	uniform sampler3D RAccumulatorLPV;
-	uniform sampler3D GAccumulatorLPV;
-	uniform sampler3D BAccumulatorLPV;
-#else
-	//layout(rgba16f ,location = 0) uniform image3D AccumulatorLPV;
-	layout(rgba16f ,location = 0) uniform image3D RAccumulatorLPV;
-	layout(rgba16f ,location = 1) uniform image3D GAccumulatorLPV;
-	layout(rgba16f ,location = 2) uniform image3D BAccumulatorLPV;
-	layout(early_fragment_tests )in;//turn on early depth tests
-#endif
+uniform sampler3D RAccumulatorLPV_l1;
+uniform sampler3D GAccumulatorLPV_l1;
+uniform sampler3D BAccumulatorLPV_l1;
+
+uniform sampler3D RAccumulatorLPV_l2;
+uniform sampler3D GAccumulatorLPV_l2;
+uniform sampler3D BAccumulatorLPV_l2;
 
 #define PI 3.1415926f
 
@@ -37,6 +30,10 @@ uniform vec3 v_gridDim;
 uniform float f_cellSize;
 uniform vec3 v_min; //min corner of the volume
 uniform float f_indirectAttenuation;
+uniform bool b_enableGI;
+uniform bool b_enableCascades;
+uniform vec3 v_allGridMins[CASCADES];
+uniform vec3 v_allCellSizes; //x - level 0 cellSize, y - level 1 cellSize, z - level 2 cellSize
 
 /*Spherical harmonics coefficients - precomputed*/
 #define SH_C0 0.282094792f // 1 / 2sqrt(pi)
@@ -47,13 +44,26 @@ vec4 evalSH_direct( vec3 direction ) {
 	return vec4( SH_C0, -SH_C1 * direction.y, SH_C1 * direction.z, -SH_C1 * direction.x );
 }
 
-// ch - channel - 0 - red, 1 - green, 2 - blue 
-ivec3 getTextureCoordinatesForGrid(ivec3 c, int ch) {
-	if(ch > 2 || ch < 0)
-		return ivec3(0,0,0);
-
-	return ivec3(c.x, c.y + ch * v_gridDim.y, c.z);
+bool isBorder(ivec3 i) {
+	if (i.x == 0 || i.x > int(v_gridDim.x))
+		return true;
+	if (i.y == 0 || i.y > int(v_gridDim.y))
+		return true;
+	if (i.z == 0 || i.z > int(v_gridDim.z))
+		return true;
+	return false;
 }
+
+bool isInside(vec3 i) {
+	if (i.x < 0 || i.x > int(v_gridDim.x))
+		return false;
+	if (i.y < 0 || i.y > int(v_gridDim.y))
+		return false;
+	if (i.z < 0 || i.z > int(v_gridDim.z))
+		return false;
+	return true;
+}
+
 void main()
 {
 	float shadow = 1.0;
@@ -89,30 +99,57 @@ void main()
 
 
 	vec4 SHintensity = evalSH_direct( -worldNorm );
-	#ifdef USESAMPLER3D
-		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize / v_gridDim; //<0,1>
+	vec3 lpvIntensity = vec3(0.0);
+	if(!b_enableCascades) {
+		vec3 lpvCellCoords = (worldPos - v_allGridMins[0]) / v_allCellSizes.x / v_gridDim; //<0,1>
 		//lpvCellCoords = clamp(lpvCellCoords, 0.0, 1.0);
-		vec3 lpvIntensity = vec3( 
-			dot( SHintensity, texture( RAccumulatorLPV, lpvCellCoords) ),
-			dot( SHintensity, texture( GAccumulatorLPV, lpvCellCoords ) ),
-			dot( SHintensity, texture( BAccumulatorLPV, lpvCellCoords ) )
+		lpvIntensity = vec3( 
+			dot( SHintensity, texture( RAccumulatorLPV_l0, lpvCellCoords) ),
+			dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords ) ),
+			dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords ) )
 		);
-	#else
-		vec3 lpvCellCoords = (worldPos - v_min) / f_cellSize;// / v_gridDim;
-		vec3 lpvIntensity = vec3( 
-			dot( SHintensity, imageLoad( RAccumulatorLPV, ivec3(lpvCellCoords) ) ),
-			dot( SHintensity, imageLoad( GAccumulatorLPV, ivec3(lpvCellCoords) ) ),
-			dot( SHintensity, imageLoad( BAccumulatorLPV, ivec3(lpvCellCoords) ) )
-		);
-	#endif
+	} else {
+		vec3 lpvCellCoords_l2 = (worldPos - v_allGridMins[2]) / v_allCellSizes.z;
+		vec3 lpvCellCoords_l1 = (worldPos - v_allGridMins[1]) / v_allCellSizes.y;
+		vec3 lpvCellCoords_l0 = (worldPos - v_allGridMins[0]) / v_allCellSizes.x;
+		//if(isInside(lpvCellCoords_l2)) {
+			lpvCellCoords_l2 /= v_gridDim;
+			vec3 lpvIntensity_l0 = vec3( 
+				dot( SHintensity, texture( RAccumulatorLPV_l2, lpvCellCoords_l2) ),
+				dot( SHintensity, texture( GAccumulatorLPV_l2, lpvCellCoords_l2 ) ),
+				dot( SHintensity, texture( BAccumulatorLPV_l2, lpvCellCoords_l2 ) )
+			);
+		//} else if (isInside(lpvCellCoords_l1)) {
+			lpvCellCoords_l1 /= v_gridDim;
+			vec3 lpvIntensity_l1 = vec3( 
+				dot( SHintensity, texture( RAccumulatorLPV_l1, lpvCellCoords_l1) ),
+				dot( SHintensity, texture( GAccumulatorLPV_l1, lpvCellCoords_l1 ) ),
+				dot( SHintensity, texture( BAccumulatorLPV_l1, lpvCellCoords_l1 ) )
+			);
+		//} else {
+			lpvCellCoords_l0 /= v_gridDim;
+			vec3 lpvIntensity_l2 = vec3( 
+				dot( SHintensity, texture( RAccumulatorLPV_l0, lpvCellCoords_l0) ),
+				dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords_l0 ) ),
+				dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords_l0 ) )
+			);
+		//}
 
-	vec3 finalLPVRadiance = (f_indirectAttenuation / PI)*  max( lpvIntensity, 0 ) ;//* 4 / f_cellSize / f_cellSize;
+		lpvIntensity = (lpvIntensity_l0*vec3(0.5) + lpvIntensity_l1*vec3(0.75) + lpvIntensity_l2);
+	}
+
+
+	vec3 finalLPVRadiance = (f_indirectAttenuation / PI)*  max( lpvIntensity, 0 ) ;
 
 	//vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
-	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + kd * finalLPVRadiance;
+	vec3 GI = vec3(0.0);
+	if(b_enableGI) {
+		GI = kd * finalLPVRadiance;
+	}
+	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + GI;
 	final_color = vec4(lightIntesity,1.0);
 
-	normals = vec4(tmpNormal,1.0);
+	//normals = vec4(tmpNormal,1.0);
 
     //final_color = texture2D(texture, uv);
 	//final_color = vec4(1.0,0.0,0.0,1.0);

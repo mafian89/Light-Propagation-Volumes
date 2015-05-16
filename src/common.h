@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector>
 #include <algorithm>    // std::max
+#include <fstream>
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
@@ -22,6 +23,9 @@
 #include "CBoundingBox.h"
 #include "DebugDrawer.h"
 #include "GBuffer.h"
+#include "animationCamera.h"
+#include "cubic.h"
+#include "spline.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
@@ -34,8 +38,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define SHADOWMAPSIZE 2048
-#define RSMSIZE 512
+#define RSMSIZE 256
 #define TEXTUREDIR "../textures/"
+#define SRCDIR "../src/"
 #define MAX_GRID_SIZE 32
 #define VPL_COUNT RSMSIZE*RSMSIZE
 #define DEG2RAD (M_PI / 180.0f)

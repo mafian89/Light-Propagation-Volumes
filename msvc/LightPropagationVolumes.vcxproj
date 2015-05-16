@@ -11,10 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\animationCamera.cpp" />
     <ClCompile Include="..\src\camera\controlCamera.cpp" />
     <ClCompile Include="..\src\CBoundingBox.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\cubic.cpp" />
     <ClCompile Include="..\src\DebugDrawer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
     <ClCompile Include="..\src\GBuffer.cpp" />
@@ -22,21 +24,25 @@
     <ClCompile Include="..\src\Grid.cpp" />
     <ClCompile Include="..\src\LPV.cpp" />
     <ClCompile Include="..\src\Mesh\Mesh.cpp" />
+    <ClCompile Include="..\src\spline.cpp" />
     <ClCompile Include="..\src\textureManager.cpp" />
     <ClCompile Include="..\src\texUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\animationCamera.h" />
     <ClInclude Include="..\src\camera\controlCamera.h" />
     <ClInclude Include="..\src\CBoundingBox.h" />
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\cubic.h" />
     <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />
     <ClInclude Include="..\src\GBuffer.h" />
     <ClInclude Include="..\src\GLSLShader\GLSLShader.h" />
     <ClInclude Include="..\src\Grid.h" />
     <ClInclude Include="..\src\Mesh\Mesh.h" />
+    <ClInclude Include="..\src\spline.h" />
     <ClInclude Include="..\src\textureManager.h" />
     <ClInclude Include="..\src\texUtils.h" />
   </ItemGroup>
@@ -131,6 +137,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>D:\DP_include_libs\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

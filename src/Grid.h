@@ -27,7 +27,7 @@ private:
 		cellSize = maxLength / MAX_GRID_SIZE;*/
 
 		center = glm::vec3(0);
-		cellSize = 2.5 * scale;
+		cellSize = 2.0 * scale;
 		min = center - glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
 		max = center + glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
 		centerToMin = min - center;
@@ -80,10 +80,11 @@ private:
 
 		//return ivec3((pos - v_min) / f_cellSize + 0.5 * normal);
 
-		//glm::ivec3 test = glm::ivec3((min - min) / cellSize);
-		//std::cout << "Grid [min]: " << test.x << "," << test.y << "," << test.z << std::endl;
-		//glm::vec3 newPoint = min - glm::vec3(10.0);
+		glm::vec3 test = glm::vec3((min - min) / cellSize) / (glm::vec3(dimensions)*glm::vec3(scale));
+		std::cout << "Grid [min]: " << test.x << "," << test.y << "," << test.z <<  std::endl;
+		//glm::vec3 newPoint = min + glm::vec3(10.0);
 		//test = glm::ivec3((newPoint - min) / cellSize);
+		//std::cout << "Grid [min-10]: " << test.x << "," << test.y << "," << test.z << " isBorder? " << isBorder(test) << std::endl;
 		//std::cout << "Grid [min-10]: " << test.x << "," << test.y << "," << test.z << " isInside? " << isInside(test) << std::endl;
 		//newPoint = max + glm::vec3(50.0);
 		//test = glm::ivec3((newPoint - min) / cellSize);
@@ -97,15 +98,25 @@ private:
 	unsigned int level;
 	glm::mat4 m;
 
-	//bool isInside(glm::ivec3 i) {
-	//	if (i.x < 0 || i.x > int(dimensions.x))
-	//		return false;
-	//	if (i.y < 0 || i.y > int(dimensions.y))
-	//		return false;
-	//	if (i.z < 0 || i.z > int(dimensions.z))
-	//		return false;
-	//	return true;
-	//}
+	bool isBorder(glm::ivec3 i) {
+		if (i.x == 0 || i.x > int(dimensions.x))
+			return true;
+		if (i.y == 0 || i.y > int(dimensions.y))
+			return true;
+		if (i.z == 0 || i.z > int(dimensions.z))
+			return true;
+		return false;
+	}
+
+	/*bool isInside(glm::ivec3 i) {
+		if (i.x < 0 || i.x > int(dimensions.x))
+			return false;
+		if (i.y < 0 || i.y > int(dimensions.y))
+			return false;
+		if (i.z < 0 || i.z > int(dimensions.z))
+			return false;
+		return true;
+	}*/
 };
 
 #endif
