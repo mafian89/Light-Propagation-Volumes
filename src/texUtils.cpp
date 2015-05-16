@@ -55,8 +55,10 @@ GLuint loadImage(const char* theFileName)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 		// Set texture interpolation method to use linear interpolation (no MIPMAPS)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 		// Specify the texture specification
 		glTexImage2D(GL_TEXTURE_2D, 				// Type of texture
@@ -68,6 +70,8 @@ GLuint loadImage(const char* theFileName)
 			ilGetInteger(IL_IMAGE_FORMAT),	// Format of image pixel data
 			GL_UNSIGNED_BYTE,		// Image data type
 			ilGetData());			// The actual image data itself
+
+		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	else // If we failed to open the image file in the first place...
 	{

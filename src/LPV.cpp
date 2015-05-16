@@ -25,15 +25,12 @@ using namespace std;
 #define WIDTH 800
 #define HEIGHT 600
 
-float aspect;
 CTextureViewer * ctv;
 CTextureViewer * ctv2;
 CControlCamera * controlCamera = new CControlCamera();
 GLSLShader basicShader, rsmShader, shadowMap, injectLight, injectLight_layered, VPLsDebug, geometryInject, geometryInject_layered, gBufferShader, propagationShader, propagationShader_layered;
 Mesh * mesh;
 GBuffer * gBuffer;
-float movementSpeed = 10.0f;
-float ftime;
 //glm::vec3 lightPosition(0.0, 4.0, 2.0);
 CTextureManager texManager;
 CFboManager * fboManager = new CFboManager();
@@ -45,22 +42,36 @@ DebugDrawer * dd, *dd_l1, *dd_l2;
 GLint texture_units, max_color_attachments;
 GLuint VPLsVAO, VPLsVBO, PropagationVAO, PropagationVBO;
 glm::vec3 volumeDimensions, vMin, editedVolumeDimensions;
+
+float aspect;
+float movementSpeed = 10.0f;
+float ftime;
 float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
+float f_indirectAttenuation = 0.8f;
+float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
+
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
 bool b_useOcclusion = true;
-float f_indirectAttenuation = 0.8f;
 bool b_useLayeredFill = true;
+bool b_useMultiStepPropagation  = false;
+bool b_movableLPV = true;
+bool b_enableGI = true;
+bool b_enableCascades = true;
+bool b_canWriteToFile = true;
+bool b_recordingMode = false;
+bool b_animation = false;
 
 int volumeDimensionsMult;
-bool useMultiStepPropagation = false;
+
 Grid levels[CASCADES];
 //v_allGridMins, v_allCellSizes
 glm::vec3 v_allGridMins[CASCADES];
 glm::vec3 v_allCellSizes;
+glm::mat4 lastm0, lastm1, lastm2;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -82,23 +93,17 @@ CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
 
 glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
-float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
 int level_global = 0;
-bool b_movableLPV = true;
-bool b_enableGI = true;
-bool b_enableCascades = true;
-glm::mat4 lastm0, lastm1, lastm2;
+unsigned int currIndex = 0;
 
 void printVector(glm::vec3 v);
 void updateGrid();
 std::fstream keyFrames;
-bool b_canWriteToFile = true;
-bool b_recordingMode = false;
-bool b_animation = true;
+
 spline splinePath;
 animationCamera * tmp;
-unsigned int currIndex = 0;
+
 
 //#define CTV
 //#define W2
@@ -739,7 +744,7 @@ void propagate(int level) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_3D, geometryInjectCascadeTextures[level]);
 
-	if (useMultiStepPropagation) {
+	if (b_useMultiStepPropagation ) {
 		for (int i = 1; i < PROPAGATION_STEPS; i++) {
 			//glUniform1i(propagationShader("AccumulatorLPV"), 0);
 			if (i > 0)
@@ -821,7 +826,7 @@ void propagate_layered(int level) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_3D, geometryInjectCascadeTextures[level]);
 
-	if (useMultiStepPropagation) {
+	if (b_useMultiStepPropagation ) {
 		for (int i = 1; i < PROPAGATION_STEPS; i++) {
 			if (i > 0)
 				b_firstPropStep = false;
@@ -1246,8 +1251,7 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-
-	/*glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
+	/*
 	dd->setVPMatrix(mvp);
 	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
@@ -1513,7 +1517,7 @@ int main() {
 
 			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
 				if (event.key.keysym.sym == SDLK_p)
-					useMultiStepPropagation = !useMultiStepPropagation;
+					b_useMultiStepPropagation  = !b_useMultiStepPropagation ;
 				if (event.key.keysym.sym == SDLK_o)
 					b_useOcclusion = !b_useOcclusion;
 				if (event.key.keysym.sym == SDLK_c) {
