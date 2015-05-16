@@ -58,6 +58,9 @@ bool b_useLayeredFill = true;
 int volumeDimensionsMult;
 bool useMultiStepPropagation = false;
 Grid levels[CASCADES];
+//v_allGridMins, v_allCellSizes
+glm::vec3 v_allGridMins[CASCADES];
+glm::vec3 v_allCellSizes;
 
 glm::mat4 biasMatrix(
 	0.5, 0.0, 0.0, 0.0,
@@ -83,10 +86,19 @@ float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
 int level_global = 0;
 bool b_movableLPV = true;
+bool b_enableGI = true;
+bool b_enableCascades = true;
 glm::mat4 lastm0, lastm1, lastm2;
 
 void printVector(glm::vec3 v);
 void updateGrid();
+std::fstream keyFrames;
+bool b_canWriteToFile = true;
+bool b_recordingMode = false;
+bool b_animation = true;
+spline splinePath;
+animationCamera * tmp;
+unsigned int currIndex = 0;
 
 //#define CTV
 //#define W2
@@ -95,6 +107,12 @@ void updateGrid();
 !!!!! IMPORTANT CHANGES !!!!!
 05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_CLAMP_TO_BORDER
 */
+
+void kill() {
+	SDL_Event event;
+	event.type = SDL_QUIT;
+	SDL_PushEvent(&event);
+}
 
 void initializeVPLsInvocations() {
 	////////////////////////////////////////////////////
@@ -297,9 +315,19 @@ void Initialize(SDL_Window * w) {
 	//glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
 	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
-	//std::cout << "Max color attachments: " << max_color_attachments << std::endl;
+	//std::cout << "Max texture units: " << texture_units << std::endl;
 	//tex = loadImage("../textures/texture.png");
 
+	if (b_recordingMode) {
+		string filename = "../src/keyFrames.txt";
+		keyFrames.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+	}
+	if (!keyFrames.is_open())
+		b_canWriteToFile = false;
+
+	if (b_animation) {
+		splinePath.init();
+	}
 
 #ifdef ORTHO_PROJECTION
 	/*
@@ -431,13 +459,23 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("shadowMatrix");
 	basicShader.AddUniform("depthTexture");
 	//basicShader.AddUniform("AccumulatorLPV");
-	basicShader.AddUniform("RAccumulatorLPV");
-	basicShader.AddUniform("GAccumulatorLPV");
-	basicShader.AddUniform("BAccumulatorLPV");
+	basicShader.AddUniform("RAccumulatorLPV_l0");
+	basicShader.AddUniform("GAccumulatorLPV_l0");
+	basicShader.AddUniform("BAccumulatorLPV_l0");
+	basicShader.AddUniform("RAccumulatorLPV_l1");
+	basicShader.AddUniform("GAccumulatorLPV_l1");
+	basicShader.AddUniform("BAccumulatorLPV_l1");
+	basicShader.AddUniform("RAccumulatorLPV_l2");
+	basicShader.AddUniform("GAccumulatorLPV_l2");
+	basicShader.AddUniform("BAccumulatorLPV_l2");
 	basicShader.AddUniform("f_cellSize");
 	basicShader.AddUniform("v_gridDim");
 	basicShader.AddUniform("v_min");
 	basicShader.AddUniform("f_indirectAttenuation");
+	basicShader.AddUniform("b_enableGI");
+	basicShader.AddUniform("b_enableCascades");
+	basicShader.AddUniform("v_allGridMins");
+	basicShader.AddUniform("v_allCellSizes");
 	basicShader.UnUse();
 
 	rsmShader.Use();
@@ -573,7 +611,7 @@ void Initialize(SDL_Window * w) {
 
 	if (CASCADES >= 3) {
 		levels[1] = Grid(levels[0], 0.5,1);
-		levels[2] = Grid(levels[0], 0.25,2);
+		levels[2] = Grid(levels[1], 0.25,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -863,15 +901,37 @@ void Display() {
 	//glViewport(0,0,width/2,height/2);
 
 	//Camera update
-	//controlCamera->setPosition(levels[0].getCenter());
-	controlCamera->computeMatricesFromInputs();
 	glm::mat4 m = glm::mat4(1.0f);
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
-	glm::mat4 v = controlCamera->getViewMatrix();
-	glm::mat3 mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
-	glm::mat4 mvp = controlCamera->getProjectionMatrix() * v * m;
-	glm::mat4 mv = controlCamera->getViewMatrix() * m;
+	glm::mat4 v, mvp, mv, vp,p;
+	glm::mat3 mn;
+	if (b_animation) {
+		tmp = new animationCamera();
+		tmp = splinePath.getSplineCameraPathOnIndex(currIndex);
+		v = tmp->getAnimationCameraViewMatrix();
+		p = tmp->getAnimationCameraProjectionMatrix();
+		mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
+		mvp = p * v * m;
+		mv = v * m;
+		vp = p * v;
+		currIndex++;
+		if (currIndex >= splinePath.getSplineCameraPath().size() - 1) {
+			kill();
+			return;
+		}
+		//check end
+	} else {
+		controlCamera->computeMatricesFromInputs();
+		v = controlCamera->getViewMatrix();
+		p = controlCamera->getProjectionMatrix();
+		mn = glm::transpose(glm::inverse(glm::mat3(v*m)));
+		mvp = p * v * m;
+		mv = v * m;
+		vp = p * v;
+	}
+
+
 
 	glm::mat4 v_light = light->getViewMatrix();
 	glm::mat4 p_light = light->getProjMatrix();
@@ -882,7 +942,8 @@ void Display() {
 	glm::vec3 lightPosition = light->getPosition();
 
 	//Update grid
-	updateGrid();
+	if (b_movableLPV)
+		updateGrid();
 	/*
 	////////////////////////////////////////////////////
 	// FILL THE G-BUFFER
@@ -1097,28 +1158,27 @@ void Display() {
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
-
-	//if (b_useLayeredFill) {
-	//	for (int l = 0; l < CASCADES; l++) {
-	//		propagate_layered(l);
-	//	}
-	//}
-	//else {
-	//	for (int l = 0; l < CASCADES; l++) {
-	//		propagate(l);
-	//	}
-	//}
-	
+	int end = 1;
+	if (b_enableCascades)
+		end = CASCADES;
 	if (b_useLayeredFill) {
+		for (int l = 0; l < end; l++) {
+			propagate_layered(l);
+		}
+	}
+	else {
+		for (int l = 0; l < end; l++) {
+			propagate(l);
+		}
+	}
+	
+	/*if (b_useLayeredFill) {
 		propagate_layered(level_global);
 	}
 	else {
 		propagate(level_global);
-	}
+	}*/
 
-	vMin = levels[level_global].getMin();
-	cellSize = levels[level_global].getCellSize();
-	
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
 	////////////////////////////////////////////////////
@@ -1129,35 +1189,49 @@ void Display() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager->getFboId());
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	basicShader.Use();
-	
-#ifdef USESAMPLER3D
-	//glUniform1i(basicShader("AccumulatorLPV"), 3);
-	//glActiveTexture(GL_TEXTURE3);
-	//glBindTexture(GL_TEXTURE_3D, texManager["AccumulatorLPV"]);
-	glUniform1i(basicShader("RAccumulatorLPV"), 3);
+	glUniform1i(basicShader("RAccumulatorLPV_l0"), 3);
 	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level_global].red);
-	glUniform1i(basicShader("GAccumulatorLPV"), 4);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].red);
+	glUniform1i(basicShader("GAccumulatorLPV_l0"), 4);
 	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level_global].green);
-	glUniform1i(basicShader("BAccumulatorLPV"), 5);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].green);
+	glUniform1i(basicShader("BAccumulatorLPV_l0"), 5);
 	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[level_global].blue);
-#else
-	//glUniform1i(basicShader("AccumulatorLPV"), 0);
-	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glUniform1i(basicShader("RAccumulatorLPV"), 0);
-	glBindImageTexture(0, accumulatorCascadeTextures[level_global].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glUniform1i(basicShader("GAccumulatorLPV"), 1);
-	glBindImageTexture(1, accumulatorCascadeTextures[level_global].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glUniform1i(basicShader("BAccumulatorLPV"), 2);
-	glBindImageTexture(2, accumulatorCascadeTextures[level_global].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-#endif
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[0].blue);
 
-	glUniform1f(basicShader("f_cellSize"), cellSize);
+	glUniform1i(basicShader("RAccumulatorLPV_l1"), 6);
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[1].red);
+	glUniform1i(basicShader("GAccumulatorLPV_l1"), 7);
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[1].green);
+	glUniform1i(basicShader("BAccumulatorLPV_l1"), 8);
+	glActiveTexture(GL_TEXTURE8);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[1].blue);
+
+	glUniform1i(basicShader("RAccumulatorLPV_l2"), 9);
+	glActiveTexture(GL_TEXTURE9);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[2].red);
+	glUniform1i(basicShader("GAccumulatorLPV_l2"), 10);
+	glActiveTexture(GL_TEXTURE10);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[2].green);
+	glUniform1i(basicShader("BAccumulatorLPV_l2"), 11);
+	glActiveTexture(GL_TEXTURE11);
+	glBindTexture(GL_TEXTURE_3D, accumulatorCascadeTextures[2].blue);
+
 	glUniform1f(basicShader("f_indirectAttenuation"), f_indirectAttenuation);// f_indirectAttenuation
+	glUniform1i(basicShader("b_enableGI"), b_enableGI);
+	glUniform1i(basicShader("b_enableCascades"), b_enableCascades);
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-	glUniform3f(basicShader("v_min"), vMin.x, vMin.y, vMin.z);
+
+	v_allGridMins[0] = levels[0].getMin();
+	v_allGridMins[1] = levels[1].getMin();
+	v_allGridMins[2] = levels[2].getMin();
+
+	v_allCellSizes = glm::vec3(levels[0].getCellSize(), levels[1].getCellSize(), levels[2].getCellSize());
+
+	glUniform3fv(basicShader("v_allGridMins"), 3, glm::value_ptr(v_allGridMins[0]));
+	glUniform3fv(basicShader("v_allCellSizes"), 1, glm::value_ptr(v_allCellSizes));
 	//glBindImageTexture(0, texManager["AccumulatorLPV"], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
 	//glUniform1i(basicShader("tex"), 0); //Texture unit 0 is for base images.
 	glUniform1i(basicShader("depthTexture"), 1); //Texture unit 1 is for shadow maps.
@@ -1172,37 +1246,19 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	/*
-	glm::mat4 m0 = glm::mat4(1.0);
-	glm::mat4 m1 = glm::mat4(1.0);
-	glm::mat4 m2 = glm::mat4(1.0);
-	if (b_movableLPV){
-		m0 = levels[0].getModelMatrix();
-		if (CASCADES >= 3) {
-			m1 = levels[1].getModelMatrix();
-			m2 = levels[2].getModelMatrix();
-		}
-		lastm0 = m0;
-		lastm1 = m1;
-		lastm2 = m2;
-	}
-	else {
-		m0 = lastm0;
-		m1 = lastm1;
-		m2 = lastm2;
-	}*/
-	glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
+
+	/*glm::mat4 vp = controlCamera->getProjectionMatrix() * v;
 	dd->setVPMatrix(mvp);
 	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
-	//dd->draw();
+	dd->draw();
 	if (CASCADES >= 3) {
 		dd_l1->setVPMatrix(mvp);
 		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
-		//dd_l1->draw();
+		dd_l1->draw();
 		dd_l2->setVPMatrix(mvp);
 		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
 		dd_l2->draw();
-	}
+	}*/
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1223,6 +1279,7 @@ void Display() {
 	glDrawArrays(GL_POINTS, 0, VPL_COUNT);
 	glBindVertexArray(0);
 	VPLsDebug.UnUse();
+	glPointSize(1.0f);
 	glDisable(GL_PROGRAM_POINT_SIZE);
 #endif
 
@@ -1239,6 +1296,8 @@ void Display() {
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
 	
+
+	delete tmp;
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
@@ -1268,6 +1327,9 @@ void Finalize(void) {
 	if (dd_l2 != NULL)
 		delete dd_l2;
 	delete gBuffer;
+	if (keyFrames.is_open()) {
+		keyFrames.close();
+	}
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -1280,9 +1342,18 @@ void printVector(glm::vec3 v) {
 
 void updateGrid() {
 	if (b_movableLPV) {
-		levels[0].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-		levels[1].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
-		levels[2].translateGrid(controlCamera->getPosition(), controlCamera->getDirection());
+		glm::vec3 pos, dir;
+		if (b_animation) {
+			pos = tmp->getAnimationCameraPosition();
+			dir = tmp->getAnimationCameraDirection();
+		}
+		else {
+			pos = controlCamera->getPosition();
+			dir = controlCamera->getDirection();
+		}
+		levels[0].translateGrid(pos, dir);
+		levels[1].translateGrid(pos, dir);
+		levels[2].translateGrid(pos, dir);
 	}
 	//vMin = levels[level].getMin();
 	//printVector(vMin);
@@ -1470,6 +1541,29 @@ int main() {
 				if (event.key.keysym.sym == SDLK_m) {
 					b_movableLPV = !b_movableLPV;
 				}
+				if (event.key.keysym.sym == SDLK_g) {
+					b_enableGI = !b_enableGI;
+				}
+				if (event.key.keysym.sym == SDLK_h) {
+					b_enableCascades = !b_enableCascades;
+				}
+				if (event.key.keysym.sym == SDLK_t) {
+					//keyFrames
+					if (b_canWriteToFile) {
+						glm::vec3 camPos = controlCamera->getPosition();
+						glm::vec3 camDirection = controlCamera->getDirection();
+						glm::vec3 camUp = controlCamera->getUp();
+						glm::vec3 camRight = controlCamera->getRight();
+						float camFov =  45.0f;
+						float aspec = (float)WIDTH / (float)HEIGHT;
+						keyFrames << "p " << camPos.x << " " << camPos.y << " " << camPos.z << " ";
+						keyFrames << "d " << camDirection.x << " " << camDirection.y << " " << camDirection.z << " ";
+						keyFrames << "u " << camUp.x << " " << camUp.y << " " << camUp.z << " ";
+						keyFrames << "r " << camRight.x << " " << camRight.y << " " << camRight.z << " ";
+						keyFrames << "f " << camFov << " a " << aspec << std::endl;;
+						break;
+					}
+				}
 				if (event.key.keysym.sym == SDLK_r){
 					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
 					controlCamera->moved = true;
@@ -1478,6 +1572,10 @@ int main() {
 				}
 				if (event.key.keysym.sym == SDLK_l) {
 					b_useLayeredFill = !b_useLayeredFill;
+				}
+				if (event.key.keysym.sym == SDLK_ESCAPE) {
+					//std::cout << "ESC\n";
+					kill();
 				}
 			}
 		}
@@ -1584,7 +1682,7 @@ int main() {
 
 
 
-	//Finalize();
+	Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
