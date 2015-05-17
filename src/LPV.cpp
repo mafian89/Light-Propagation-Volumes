@@ -1,6 +1,20 @@
 #include "common.h"
 #include "CTextureViewer.h"
 #include "Grid.h"
+#include "GLSLShader/GLSLShader.h"
+#include "camera/controlCamera.h"
+#include "Mesh/Mesh.h"
+#include "fboManager.h"
+#include "textureManager.h"
+#include "CLightObject.h"
+#include "texUtils.h"
+#include "CBoundingBox.h"
+#include "DebugDrawer.h"
+#include "GBuffer.h"
+#include "animationCamera.h"
+#include "cubic.h"
+#include "spline.h"
+#include "CTimeQuery.h"
 
 
 #ifdef _MSC_VER
@@ -37,6 +51,7 @@ CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
 CLightObject * light;
+TimeQuery testQuery("TEST");
 DebugDrawer * dd, *dd_l1, *dd_l2;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
@@ -1164,6 +1179,7 @@ void Display() {
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
 	int end = 1;
+
 	if (b_enableCascades)
 		end = CASCADES;
 	if (b_useLayeredFill) {
@@ -1176,6 +1192,7 @@ void Display() {
 			propagate(l);
 		}
 	}
+
 	
 	/*if (b_useLayeredFill) {
 		propagate_layered(level_global);

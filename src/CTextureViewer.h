@@ -2,6 +2,7 @@
 #define CTEXTUREVIEWER_H
 
 #include "common.h"
+#include "GLSLShader/GLSLShader.h"
 
 /*
 * Simple class, which will render texture on screen 

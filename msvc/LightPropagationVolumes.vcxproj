@@ -16,6 +16,7 @@
     <ClCompile Include="..\src\CBoundingBox.cpp" />
     <ClCompile Include="..\src\CLightObject.cpp" />
     <ClCompile Include="..\src\CTextureViewer.cpp" />
+    <ClCompile Include="..\src\CTimeQuery.cpp" />
     <ClCompile Include="..\src\cubic.cpp" />
     <ClCompile Include="..\src\DebugDrawer.cpp" />
     <ClCompile Include="..\src\fboManager.cpp" />
@@ -35,6 +36,7 @@
     <ClInclude Include="..\src\CLightObject.h" />
     <ClInclude Include="..\src\common.h" />
     <ClInclude Include="..\src\CTextureViewer.h" />
+    <ClInclude Include="..\src\CTimeQuery.h" />
     <ClInclude Include="..\src\cubic.h" />
     <ClInclude Include="..\src\DebugDrawer.h" />
     <ClInclude Include="..\src\fboManager.h" />

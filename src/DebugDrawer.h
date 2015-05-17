@@ -2,6 +2,7 @@
 #define DEBUGDRAWER_H
 
 #include "common.h"
+#include "GLSLShader/GLSLShader.h"
 
 class DebugDrawer {
 public:

@@ -112,28 +112,27 @@ void main()
 		vec3 lpvCellCoords_l2 = (worldPos - v_allGridMins[2]) / v_allCellSizes.z;
 		vec3 lpvCellCoords_l1 = (worldPos - v_allGridMins[1]) / v_allCellSizes.y;
 		vec3 lpvCellCoords_l0 = (worldPos - v_allGridMins[0]) / v_allCellSizes.x;
-		//if(isInside(lpvCellCoords_l2)) {
-			lpvCellCoords_l2 /= v_gridDim;
-			vec3 lpvIntensity_l0 = vec3( 
-				dot( SHintensity, texture( RAccumulatorLPV_l2, lpvCellCoords_l2) ),
-				dot( SHintensity, texture( GAccumulatorLPV_l2, lpvCellCoords_l2 ) ),
-				dot( SHintensity, texture( BAccumulatorLPV_l2, lpvCellCoords_l2 ) )
-			);
-		//} else if (isInside(lpvCellCoords_l1)) {
-			lpvCellCoords_l1 /= v_gridDim;
-			vec3 lpvIntensity_l1 = vec3( 
-				dot( SHintensity, texture( RAccumulatorLPV_l1, lpvCellCoords_l1) ),
-				dot( SHintensity, texture( GAccumulatorLPV_l1, lpvCellCoords_l1 ) ),
-				dot( SHintensity, texture( BAccumulatorLPV_l1, lpvCellCoords_l1 ) )
-			);
-		//} else {
-			lpvCellCoords_l0 /= v_gridDim;
-			vec3 lpvIntensity_l2 = vec3( 
-				dot( SHintensity, texture( RAccumulatorLPV_l0, lpvCellCoords_l0) ),
-				dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords_l0 ) ),
-				dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords_l0 ) )
-			);
-		//}
+
+		lpvCellCoords_l2 /= v_gridDim;
+		vec3 lpvIntensity_l0 = vec3( 
+			dot( SHintensity, texture( RAccumulatorLPV_l2, lpvCellCoords_l2) ),
+			dot( SHintensity, texture( GAccumulatorLPV_l2, lpvCellCoords_l2 ) ),
+			dot( SHintensity, texture( BAccumulatorLPV_l2, lpvCellCoords_l2 ) )
+		);
+
+		lpvCellCoords_l1 /= v_gridDim;
+		vec3 lpvIntensity_l1 = vec3( 
+			dot( SHintensity, texture( RAccumulatorLPV_l1, lpvCellCoords_l1) ),
+			dot( SHintensity, texture( GAccumulatorLPV_l1, lpvCellCoords_l1 ) ),
+			dot( SHintensity, texture( BAccumulatorLPV_l1, lpvCellCoords_l1 ) )
+		);
+
+		lpvCellCoords_l0 /= v_gridDim;
+		vec3 lpvIntensity_l2 = vec3( 
+			dot( SHintensity, texture( RAccumulatorLPV_l0, lpvCellCoords_l0) ),
+			dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords_l0 ) ),
+			dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords_l0 ) )
+		);
 
 		lpvIntensity = (lpvIntensity_l0*vec3(0.5) + lpvIntensity_l1*vec3(0.75) + lpvIntensity_l2);
 	}

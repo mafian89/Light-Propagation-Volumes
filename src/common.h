@@ -6,26 +6,13 @@
 #include <vector>
 #include <algorithm>    // std::max
 #include <fstream>
+#include <map>
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <IL/il.h>
 #include <IL/ilu.h>
 #include <IL/ilut.h>
-
-#include "GLSLShader/GLSLShader.h"
-#include "camera/controlCamera.h"
-#include "Mesh/Mesh.h"
-#include "fboManager.h"
-#include "textureManager.h"
-#include "CLightObject.h"
-#include "texUtils.h"
-#include "CBoundingBox.h"
-#include "DebugDrawer.h"
-#include "GBuffer.h"
-#include "animationCamera.h"
-#include "cubic.h"
-#include "spline.h"
 
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
