@@ -27,11 +27,10 @@ in vec4 shadowCoord;
 uniform sampler2D tex;
 uniform sampler2DShadow depthTexture;
 uniform vec3 v_gridDim;
-uniform float f_cellSize;
-uniform vec3 v_min; //min corner of the volume
 uniform float f_indirectAttenuation;
 uniform bool b_enableGI;
 uniform bool b_enableCascades;
+uniform bool b_lightIntesityOnly;
 uniform vec3 v_allGridMins[CASCADES];
 uniform vec3 v_allCellSizes; //x - level 0 cellSize, y - level 1 cellSize, z - level 2 cellSize
 
@@ -146,7 +145,12 @@ void main()
 		GI = kd * finalLPVRadiance;
 	}
 	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + GI;
-	final_color = vec4(lightIntesity,1.0);
+	if(b_lightIntesityOnly) {
+		final_color = vec4(finalLPVRadiance,1.0);
+	} else {
+		final_color = vec4(lightIntesity,1.0);
+	}
+
 
 	//normals = vec4(tmpNormal,1.0);
 

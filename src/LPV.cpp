@@ -79,6 +79,7 @@ bool b_enableCascades = true;
 bool b_canWriteToFile = true;
 bool b_recordingMode = false;
 bool b_animation = false;
+bool b_lightIntesityOnly = false;
 
 int volumeDimensionsMult;
 
@@ -494,6 +495,7 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("f_indirectAttenuation");
 	basicShader.AddUniform("b_enableGI");
 	basicShader.AddUniform("b_enableCascades");
+	basicShader.AddUniform("b_lightIntesityOnly");
 	basicShader.AddUniform("v_allGridMins");
 	basicShader.AddUniform("v_allCellSizes");
 	basicShader.UnUse();
@@ -1244,6 +1246,7 @@ void Display() {
 	glUniform1f(basicShader("f_indirectAttenuation"), f_indirectAttenuation);// f_indirectAttenuation
 	glUniform1i(basicShader("b_enableGI"), b_enableGI);
 	glUniform1i(basicShader("b_enableCascades"), b_enableCascades);
+	glUniform1i(basicShader("b_lightIntesityOnly"), b_lightIntesityOnly);
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
 	v_allGridMins[0] = levels[0].getMin();
@@ -1593,6 +1596,9 @@ int main() {
 				}
 				if (event.key.keysym.sym == SDLK_l) {
 					b_useLayeredFill = !b_useLayeredFill;
+				}
+				if (event.key.keysym.sym == SDLK_i) {
+					b_lightIntesityOnly = !b_lightIntesityOnly;
 				}
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					//std::cout << "ESC\n";
