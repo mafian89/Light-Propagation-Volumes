@@ -65,14 +65,14 @@ float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
-float f_indirectAttenuation = 0.8f;
+float f_indirectAttenuation = 1.2f;
 float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
 bool b_useOcclusion = true;
 bool b_useLayeredFill = true;
-bool b_useMultiStepPropagation  = false;
+bool b_useMultiStepPropagation  = true;
 bool b_movableLPV = true;
 bool b_enableGI = true;
 bool b_enableCascades = true;
@@ -982,7 +982,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-	
+	testQuery.start();
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -1020,7 +1020,8 @@ void Display() {
 	mesh->render();
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+	testQuery.stop();
+	std::cout << testQuery.getElapsedTime() << std::endl;
 	////////////////////////////////////////////////////
 	// LIGHT INJECT
 	////////////////////////////////////////////////////
@@ -1029,12 +1030,17 @@ void Display() {
 	//texManager.clear3Dtexture(texManager["LPVGridG"]);
 	//texManager.clear3Dtexture(texManager["LPVGridB"]);
 
+	int end = 1;
+
+	if (b_enableCascades)
+		end = CASCADES;
+
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	for (int i = 0; i < CASCADES; i++) {
+	for (int i = 0; i < end; i++) {
 		texManager.clear3Dtexture(injectCascadeTextures[i].red);
 		texManager.clear3Dtexture(injectCascadeTextures[i].green);
 		texManager.clear3Dtexture(injectCascadeTextures[i].blue);
@@ -1180,10 +1186,6 @@ void Display() {
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
-	int end = 1;
-
-	if (b_enableCascades)
-		end = CASCADES;
 	if (b_useLayeredFill) {
 		for (int l = 0; l < end; l++) {
 			propagate_layered(l);
@@ -1195,13 +1197,6 @@ void Display() {
 		}
 	}
 
-	
-	/*if (b_useLayeredFill) {
-		propagate_layered(level_global);
-	}
-	else {
-		propagate(level_global);
-	}*/
 
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
@@ -1271,7 +1266,7 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	/*
+#ifdef GRIDS_DEBUG
 	dd->setVPMatrix(mvp);
 	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
@@ -1282,7 +1277,8 @@ void Display() {
 		dd_l2->setVPMatrix(mvp);
 		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
 		dd_l2->draw();
-	}*/
+	}
+#endif
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1322,6 +1318,7 @@ void Display() {
 	
 
 	delete tmp;
+	
 }
 
 void DisplayTexture(CTextureViewer * ctv) {
@@ -1407,7 +1404,7 @@ int main() {
 	/* Request opengl 4.4 context. */
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	/* Turn on double buffering with a 24bit Z buffer.
@@ -1432,34 +1429,6 @@ int main() {
 	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!w2){ // Die if creation failed 
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-#endif
-#ifdef CTV
-	SDL_Window *w3;
-	w3 = SDL_CreateWindow("Window title goes here #3", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w3){ /* Die if creation failed */
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-
-	SDL_Window *w4;
-	w4 = SDL_CreateWindow("Window title goes here #4", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w4){ /* Die if creation failed */
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-
-	SDL_Window *w5;
-	w5 = SDL_CreateWindow("Window title goes here #4", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w5){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
@@ -1546,19 +1515,6 @@ int main() {
 				if (event.key.keysym.sym == SDLK_v) {
 					if (f_indirectAttenuation >= 0.2) {
 						f_indirectAttenuation -= 0.1;
-					}
-				}
-
-				if (event.key.keysym.sym == SDLK_x) {
-					if (level_global < 2) {
-						level_global += 1;
-						std::cout << level_global << std::endl;
-					}
-				}
-				if (event.key.keysym.sym == SDLK_z) {
-					if (level_global > 0) {
-						level_global -= 1;
-						std::cout << level_global << std::endl;
 					}
 				}
 
@@ -1659,28 +1615,6 @@ int main() {
 			light->setHorAngle(light->getHorAngle() - 0.01f);
 		}
 
-#ifdef CTV
-
-		SDL_GL_MakeCurrent(w3, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
-		//rsm_world_space_coords_tex
-		//rsm_normal_tex
-		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_normal_tex"]);
-		//ctv->setDepthOnly(true);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w3);
-
-		SDL_GL_MakeCurrent(w4, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
-		//rsm_world_space_coords_tex
-		//rsm_normal_tex
-		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_world_space_coords_tex"]);
-		//ctv->setDepthOnly(true);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w4);
-#endif
 #ifdef W2
 		SDL_GL_MakeCurrent(w2, maincontext);
 		//ctv->setTexture(texManager["rsm_depth_tex"]);

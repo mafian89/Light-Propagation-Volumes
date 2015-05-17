@@ -33,6 +33,7 @@
 #define DEG2RAD (M_PI / 180.0f)
 
 //#define VPL_DEBUG
+//#define GRIDS_DEBUG
 #define ORTHO_PROJECTION
 #define USESAMPLER3D
 #define PROPAGATION_STEPS 8

@@ -80,6 +80,11 @@ void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 di
 void CTextureManager::clear3Dtexture(GLuint texture) {
 	GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	glClearTexImage(texture, 0, GL_RGBA, GL_FLOAT, &data[0]);
+	//MUCH SLOWER version, but should work on version lower than 4.4
+	//std::vector<GLfloat> emptyData(MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_GRID_SIZE * sizeof(float), 0.0);
+	//glBindTexture(GL_TEXTURE_3D, texture);
+	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, MAX_GRID_SIZE, MAX_GRID_SIZE, MAX_GRID_SIZE, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+	//glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 void CTextureManager::createRGBA3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
