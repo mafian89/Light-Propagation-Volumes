@@ -84,6 +84,8 @@ void CTextureManager::clear3Dtexture(GLuint texture) {
 	//std::vector<GLfloat> emptyData(MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_GRID_SIZE * sizeof(float), 0.0);
 	//glBindTexture(GL_TEXTURE_3D, texture);
 	//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, MAX_GRID_SIZE, MAX_GRID_SIZE, MAX_GRID_SIZE, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+	//or
+	//glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,0, MAX_GRID_SIZE, MAX_GRID_SIZE, MAX_GRID_SIZE, GL_RGBA, GL_FLOAT, &emptyData[0]);
 	//glBindTexture(GL_TEXTURE_3D, 0);
 }
 

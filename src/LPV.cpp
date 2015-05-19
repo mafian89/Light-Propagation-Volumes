@@ -333,7 +333,7 @@ void initInjectFBOs() {
 }
 
 void Initialize(SDL_Window * w) {
-	//glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+	//glGetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, &texture_units);
 	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
 	//std::cout << "Max texture units: " << texture_units << std::endl;
@@ -460,12 +460,20 @@ void Initialize(SDL_Window * w) {
 	Camera DIRECTION vector: (-0.92002, -0.354145, -0.167762)
 	Camera horizotnal angle: 4.53202
 	Camera vertical angle: -0.362
+
+	Camera POSITION vector: (-2.30154, 12.166, -0.327947)
+	Camera UP vector: (-0.00477892, 0.749824, -0.66162)
+	Camera RIGHT vector: (0.999974, 0, -0.00722287)
+	Camera DIRECTION vector: (-0.00481883, -0.661638, -0.749808)
+	Camera horizotnal angle: 3.14802
+	Camera vertical angle: -0.723001
 	*/
 	//Normal camera
 	//controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, WIDTH, HEIGHT, 1.0, 1000.0);
 	//Blocking view
 	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
 	//Debug
+	//controlCamera->initControlCamera(glm::vec3(-2.30154, 12.166, -0.327947), w, 3.14802, -0.723001, WIDTH, HEIGHT, 1.0, 1000.0);
 	controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), w, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
@@ -1021,7 +1029,7 @@ void Display() {
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	testQuery.stop();
-	std::cout << testQuery.getElapsedTime() << std::endl;
+	//std::cout << testQuery.getElapsedTime() << std::endl;
 	////////////////////////////////////////////////////
 	// LIGHT INJECT
 	////////////////////////////////////////////////////

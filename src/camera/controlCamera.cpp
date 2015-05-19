@@ -99,7 +99,7 @@ void CControlCamera::computeMatricesFromInputs(void){
 			//SDL_WarpMouse((Uint16)(width/2),(Uint16)(height/2));
 			SDL_WarpMouseInWindow(window, (Uint16)(width / 2), (Uint16)(height / 2));
 			this->horizontalAngle += this->mouseSpeed *  (float(this->width/2) - float(this->_x));
-			this->verticalAngle += + this->mouseSpeed*  (float(this->height/2) - float(this->_y));
+			this->verticalAngle += this->mouseSpeed*  (float(this->height/2) - float(this->_y));
 			if(this->verticalAngle >= 3.14f/2.0f){
 				this->verticalAngle = (3.14f/2.0f);
 			} else if(verticalAngle <= (-3.14f/2.0f)){

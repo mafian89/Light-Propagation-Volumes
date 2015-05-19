@@ -3,7 +3,7 @@
 layout(points )in;
 layout(points ,max_vertices = 1 )out;
 
-in ivec3 v_volumeCellIndex[];
+flat in ivec3 v_volumeCellIndex[];
 in vec3 v_posFromRSM[];
 in vec3 v_normalFromRSM[];
 in float surfelArea[];
