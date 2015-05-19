@@ -80,6 +80,7 @@ bool b_canWriteToFile = true;
 bool b_recordingMode = false;
 bool b_animation = false;
 bool b_lightIntesityOnly = false;
+bool b_compileAndUseAtomicShaders = true;
 
 int volumeDimensionsMult;
 
@@ -332,12 +333,48 @@ void initInjectFBOs() {
 	}
 }
 
+bool IsExtensionSupported(const char *name)
+{
+	GLint n = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+	for (GLint i = 0; i < n; i++)
+	{
+		const char* extension =
+			(const char*)glGetStringi(GL_EXTENSIONS, i);
+		if (!strcmp(name, extension))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void Initialize(SDL_Window * w) {
 	//glGetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, &texture_units);
 	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
 	//std::cout << "Max texture units: " << texture_units << std::endl;
 	//tex = loadImage("../textures/texture.png");
+	if (!glewIsSupported("GL_ARB_clear_texture"))
+	{
+		std::cout << "GL_ARB_clear_texture not supported, using alternative method" << std::endl;
+		texManager.setClearTextureExtension(false);
+	}
+
+	if (!IsExtensionSupported("GL_NV_shader_atomic_float")) {
+		std::cout << "GL_NV_shader_atomic_float not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
+
+	if (!IsExtensionSupported("GL_NV_shader_atomic_fp16_vector")) {
+		std::cout << "GL_NV_shader_atomic_fp16_vector not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
+
+	if (!IsExtensionSupported("GL_NV_gpu_shader5")) {
+		std::cout << "GL_NV_gpu_shader5 not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
 
 	if (b_recordingMode) {
 		string filename = "../src/keyFrames.txt";
@@ -399,25 +436,25 @@ void Initialize(SDL_Window * w) {
 	gBufferShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/gbufferFill.frag").c_str());
 	gBufferShader.CreateAndLinkProgram();
 
+	if (b_compileAndUseAtomicShaders) {
+		propagationShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation.vs").c_str());
+		propagationShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation.frag").c_str());
+		propagationShader.CreateAndLinkProgram();
 
-	propagationShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation.vs").c_str());
-	propagationShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation.frag").c_str());
-	propagationShader.CreateAndLinkProgram();
+		injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
+		injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
+		injectLight.CreateAndLinkProgram();
+
+		geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
+		geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
+		geometryInject.CreateAndLinkProgram();
+	}
 
 
 	injectLight_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
 	injectLight_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
 	injectLight_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject_layered.frag").c_str());
 	injectLight_layered.CreateAndLinkProgram();
-
-	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
-	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
-	injectLight.CreateAndLinkProgram();
-
-	geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
-	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
-	geometryInject.CreateAndLinkProgram();
-
 	
 	geometryInject_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject_layered.vs").c_str());
 	geometryInject_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/geometryInject_layered.gs").c_str());
@@ -526,19 +563,53 @@ void Initialize(SDL_Window * w) {
 	gBufferShader.AddUniform("mv");
 	gBufferShader.AddUniform("colorTex");
 	gBufferShader.UnUse();
+	if (b_compileAndUseAtomicShaders) {
+		injectLight.Use();
+		injectLight.AddUniform("LPVGridR");
+		injectLight.AddUniform("LPVGridG");
+		injectLight.AddUniform("LPVGridB");
+		injectLight.AddUniform("v_gridDim");
+		injectLight.AddUniform("f_cellSize");
+		injectLight.AddUniform("v_min");
+		injectLight.AddUniform("i_RSMsize");
+		injectLight.AddUniform("rsm_world_space_coords_tex");
+		injectLight.AddUniform("rsm_normal_tex");
+		injectLight.AddUniform("rsm_flux_tex");
+		injectLight.UnUse();
 
-	injectLight.Use();
-	injectLight.AddUniform("LPVGridR");
-	injectLight.AddUniform("LPVGridG");
-	injectLight.AddUniform("LPVGridB");
-	injectLight.AddUniform("v_gridDim");
-	injectLight.AddUniform("f_cellSize");
-	injectLight.AddUniform("v_min");
-	injectLight.AddUniform("i_RSMsize");
-	injectLight.AddUniform("rsm_world_space_coords_tex");
-	injectLight.AddUniform("rsm_normal_tex");
-	injectLight.AddUniform("rsm_flux_tex");
-	injectLight.UnUse();
+		geometryInject.Use();
+		geometryInject.AddUniform("GeometryVolume");
+		geometryInject.AddUniform("v_gridDim");
+		geometryInject.AddUniform("f_cellSize");
+		geometryInject.AddUniform("v_min");
+		geometryInject.AddUniform("i_RSMsize");
+		geometryInject.AddUniform("rsm_world_space_coords_tex");
+		geometryInject.AddUniform("rsm_normal_tex");
+		geometryInject.AddUniform("rsm_flux_tex");
+		geometryInject.AddUniform("f_tanFovXHalf");
+		geometryInject.AddUniform("f_tanFovYHalf");
+		geometryInject.AddUniform("v_lightPos");
+		geometryInject.AddUniform("m_lightView");
+		geometryInject.AddUniform("f_texelAreaModifier");
+		geometryInject.UnUse();
+
+		propagationShader.Use();
+		//propagationShader.AddUniform("AccumulatorLPV");
+		propagationShader.AddUniform("RAccumulatorLPV");
+		propagationShader.AddUniform("GAccumulatorLPV");
+		propagationShader.AddUniform("BAccumulatorLPV");
+		propagationShader.AddUniform("GeometryVolume");
+		propagationShader.AddUniform("RLightGridForNextStep");
+		propagationShader.AddUniform("GLightGridForNextStep");
+		propagationShader.AddUniform("BLightGridForNextStep");
+		propagationShader.AddUniform("LPVGridR");
+		propagationShader.AddUniform("LPVGridG");
+		propagationShader.AddUniform("LPVGridB");
+		propagationShader.AddUniform("b_firstPropStep");
+		propagationShader.AddUniform("v_gridDim");
+		propagationShader.AddUniform("b_useOcclusion");
+		propagationShader.UnUse();
+	}
 	//b_useLayeredFill
 
 	injectLight_layered.Use();
@@ -554,50 +625,6 @@ void Initialize(SDL_Window * w) {
 	injectLight_layered.AddUniform("rsm_flux_tex");
 	injectLight_layered.UnUse();
 
-	geometryInject.Use();
-	geometryInject.AddUniform("GeometryVolume");
-	geometryInject.AddUniform("v_gridDim");
-	geometryInject.AddUniform("f_cellSize");
-	geometryInject.AddUniform("v_min");
-	geometryInject.AddUniform("i_RSMsize");
-	geometryInject.AddUniform("rsm_world_space_coords_tex");
-	geometryInject.AddUniform("rsm_normal_tex");
-	geometryInject.AddUniform("rsm_flux_tex");
-	geometryInject.AddUniform("f_tanFovXHalf");
-	geometryInject.AddUniform("f_tanFovYHalf");
-	geometryInject.AddUniform("v_lightPos");
-	geometryInject.AddUniform("m_lightView");
-	geometryInject.AddUniform("f_texelAreaModifier");
-	geometryInject.UnUse();
-
-#ifdef VPL_DEBUG
-	VPLsDebug.Use();
-	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
-	VPLsDebug.AddUniform("rsm_normal_tex");
-	VPLsDebug.AddUniform("mvp");
-	VPLsDebug.AddUniform("i_RSMsize");
-	VPLsDebug.AddUniform("b_useNormalOffset");
-	VPLsDebug.UnUse();
-#endif
-
-	propagationShader.Use();
-	//propagationShader.AddUniform("AccumulatorLPV");
-	propagationShader.AddUniform("RAccumulatorLPV");
-	propagationShader.AddUniform("GAccumulatorLPV");
-	propagationShader.AddUniform("BAccumulatorLPV");
-	propagationShader.AddUniform("GeometryVolume");
-	propagationShader.AddUniform("RLightGridForNextStep");
-	propagationShader.AddUniform("GLightGridForNextStep");
-	propagationShader.AddUniform("BLightGridForNextStep");
-	propagationShader.AddUniform("LPVGridR");
-	propagationShader.AddUniform("LPVGridG");
-	propagationShader.AddUniform("LPVGridB");
-	propagationShader.AddUniform("b_firstPropStep");
-	propagationShader.AddUniform("v_gridDim");
-	propagationShader.AddUniform("b_useOcclusion");
-	propagationShader.UnUse();
-
-	
 	geometryInject_layered.Use();
 	geometryInject_layered.AddUniform("v_gridDim");
 	geometryInject_layered.AddUniform("f_cellSize");
@@ -624,7 +651,17 @@ void Initialize(SDL_Window * w) {
 	propagationShader_layered.AddUniform("b_useOcclusion");
 	propagationShader_layered.AddUniform("v_gridDim");
 	propagationShader_layered.UnUse();
-	
+
+#ifdef VPL_DEBUG
+	VPLsDebug.Use();
+	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("rsm_normal_tex");
+	VPLsDebug.AddUniform("mvp");
+	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.AddUniform("b_useNormalOffset");
+	VPLsDebug.UnUse();
+#endif
+
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS & FILL THE VARIABLES
@@ -1087,34 +1124,36 @@ void Display() {
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		}
 		else {
-			injectLight.Use();
-			//texManager.clear3Dtexture(texManager["LPVGridR"]);
-			//texManager.clear3Dtexture(texManager["LPVGridG"]);
-			//texManager.clear3Dtexture(texManager["LPVGridB"]);
+			if (b_compileAndUseAtomicShaders) {
+				injectLight.Use();
+				//texManager.clear3Dtexture(texManager["LPVGridR"]);
+				//texManager.clear3Dtexture(texManager["LPVGridG"]);
+				//texManager.clear3Dtexture(texManager["LPVGridB"]);
 
-			glUniform1i(injectLight("LPVGridR"), 0);
-			glUniform1i(injectLight("LPVGridG"), 1);
-			glUniform1i(injectLight("LPVGridB"), 2);
-			glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
-			glUniform1i(injectLight("rsm_normal_tex"), 1);
-			glUniform1i(injectLight("rsm_flux_tex"), 2);
-			glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
-			glUniform1f(injectLight("f_cellSize"), cellSize);
-			glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
-			glBindImageTexture(0, injectCascadeTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(1, injectCascadeTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(2, injectCascadeTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindVertexArray(VPLsVAO);
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);
-			injectLight.UnUse();
+				glUniform1i(injectLight("LPVGridR"), 0);
+				glUniform1i(injectLight("LPVGridG"), 1);
+				glUniform1i(injectLight("LPVGridB"), 2);
+				glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
+				glUniform1i(injectLight("rsm_normal_tex"), 1);
+				glUniform1i(injectLight("rsm_flux_tex"), 2);
+				glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
+				glUniform1f(injectLight("f_cellSize"), cellSize);
+				glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+				glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+				glBindImageTexture(0, injectCascadeTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+				glBindImageTexture(1, injectCascadeTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+				glBindImageTexture(2, injectCascadeTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+				glBindVertexArray(VPLsVAO);
+				glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+				glBindVertexArray(0);
+				injectLight.UnUse();
+			}
 		}
 
 		////////////////////////////////////////////////////
@@ -1155,29 +1194,31 @@ void Display() {
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		}
 		else {
-			geometryInject.Use();
-			glUniform1i(geometryInject("GeometryVolume"), 0);
-			glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
-			glUniform1i(geometryInject("rsm_normal_tex"), 1);
-			glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
-			glUniform1f(geometryInject("f_cellSize"), cellSize);
-			glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
-			glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
-			glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
-			glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
-			glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-			glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
-			//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glBindImageTexture(0, geometryInjectCascadeTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindVertexArray(VPLsVAO);
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);
-			geometryInject.UnUse();
+			if (b_compileAndUseAtomicShaders) {
+				geometryInject.Use();
+				glUniform1i(geometryInject("GeometryVolume"), 0);
+				glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
+				glUniform1i(geometryInject("rsm_normal_tex"), 1);
+				glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
+				glUniform1f(geometryInject("f_cellSize"), cellSize);
+				glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
+				glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
+				glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
+				glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+				glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
+				glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+				glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+				//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+				glBindImageTexture(0, geometryInjectCascadeTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+				glBindVertexArray(VPLsVAO);
+				glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+				glBindVertexArray(0);
+				geometryInject.UnUse();
+			}
 		}
 	}
 
@@ -1200,8 +1241,10 @@ void Display() {
 		}
 	}
 	else {
-		for (int l = 0; l < end; l++) {
-			propagate(l);
+		if (b_compileAndUseAtomicShaders) {
+			for (int l = 0; l < end; l++) {
+				propagate(l);
+			}
 		}
 	}
 
@@ -1412,7 +1455,7 @@ int main() {
 	/* Request opengl 4.4 context. */
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	/* Turn on double buffering with a 24bit Z buffer.

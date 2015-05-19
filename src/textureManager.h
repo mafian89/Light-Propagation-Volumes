@@ -15,8 +15,12 @@ public:
 	void createRGBA16F3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap);
 	void createRGBA3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap);
 	void clear3Dtexture(GLuint texture);
+	void setClearTextureExtension(bool v) {
+		clearTextureExtension = v;
+	}
 private:
 	map<string,GLuint> textures;
+	bool clearTextureExtension;
 };
 
 #endif
