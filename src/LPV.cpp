@@ -1475,6 +1475,15 @@ void updateGrid() {
 	//printVector(vMin);
 }
 
+void setTitle(SDL_Window * w) {
+	string casc = (b_enableCascades) ? "yes" : "no";
+	string layered = (b_useLayeredFill) ? "yes" : "no";
+	string occ = (b_useOcclusion) ? "yes" : "no";
+	string title = "CLPV Grid: " + std::to_string(MAX_GRID_SIZE) + " props: " + std::to_string(PROPAGATION_STEPS) + " layered: " + layered + " cascades: " + casc + " occlusion: " + occ;
+	SDL_SetWindowTitle(w, title.c_str());
+
+}
+
 void processParams(int argc, char **argv) {
 	std::string arg, sample;
 	for (int i = 1; i<argc; i++){
@@ -1540,13 +1549,16 @@ int main(int argc, char **argv) {
 	//SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
 	/* Create our window centered at 512x512 resolution */
-	mainwindow = SDL_CreateWindow("Window title goes here", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	//string title = "CLPV Grid: " + std::to_string(MAX_GRID_SIZE) + " props: " + std::to_string(PROPAGATION_STEPS) + " cascades: ";
+	mainwindow = SDL_CreateWindow("Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!mainwindow){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
 		SDL_Quit();
 		return 1;
 	}
+
+	setTitle(mainwindow);
 
 	/* Create our opengl context and attach it to our window */
 	maincontext = SDL_GL_CreateContext(mainwindow);
@@ -1633,8 +1645,10 @@ int main(int argc, char **argv) {
 			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
 				if (event.key.keysym.sym == SDLK_p)
 					b_useMultiStepPropagation  = !b_useMultiStepPropagation ;
-				if (event.key.keysym.sym == SDLK_o)
+				if (event.key.keysym.sym == SDLK_o) {
 					b_useOcclusion = !b_useOcclusion;
+					setTitle(mainwindow);
+				}
 				if (event.key.keysym.sym == SDLK_c) {
 					f_indirectAttenuation += 0.1;
 				}
@@ -1652,6 +1666,7 @@ int main(int argc, char **argv) {
 				}
 				if (event.key.keysym.sym == SDLK_h) {
 					b_enableCascades = !b_enableCascades;
+					setTitle(mainwindow);
 				}
 				if (event.key.keysym.sym == SDLK_t) {
 					//keyFrames
@@ -1678,6 +1693,7 @@ int main(int argc, char **argv) {
 				}
 				if (event.key.keysym.sym == SDLK_l) {
 					b_useLayeredFill = !b_useLayeredFill;
+					setTitle(mainwindow);
 				}
 				if (event.key.keysym.sym == SDLK_i) {
 					b_lightIntesityOnly = !b_lightIntesityOnly;
