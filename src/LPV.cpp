@@ -386,11 +386,13 @@ void Initialize(SDL_Window * w) {
 
 	if (b_profileMode) {
 		string path = "../misc/";
-		string filename = path + "inject.txt";
+		string gridSize = std::to_string(MAX_GRID_SIZE);
+		string propagations = std::to_string(PROPAGATION_STEPS);
+		string filename = path + "inject_" + gridSize + "_" + propagations + ".txt";
 		injectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 		//filename = path + "geometryInject.txt";
 		//geometryInjectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
-		filename = path + "propagation.txt";
+		filename = path + "propagation_" + gridSize + "_" + propagations + ".txt";
 		PropagationTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc); 
 		filename = path + "rsm.txt";
 		RSMTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
@@ -971,6 +973,8 @@ void propagate_layered(int level) {
 	propagationShader_layered.UnUse();
 }
 
+int inc = 1;
+
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -990,6 +994,11 @@ void Display() {
 	glm::mat4 v, mvp, mv, vp,p;
 	glm::mat3 mn;
 	if (b_animation) {
+		//std::cout << currIndex << "/" << splinePath.getSplineCameraPath().size() - 1 << std::endl;
+		if (currIndex >= splinePath.getSplineCameraPath().size() - 1) {
+			kill();
+			return;
+		}
 		tmp = new animationCamera();
 		tmp = splinePath.getSplineCameraPathOnIndex(currIndex);
 		v = tmp->getAnimationCameraViewMatrix();
@@ -998,11 +1007,11 @@ void Display() {
 		mvp = p * v * m;
 		mv = v * m;
 		vp = p * v;
-		currIndex++;
-		if (currIndex >= splinePath.getSplineCameraPath().size() - 1) {
-			kill();
-			return;
-		}
+		//cout << inc << endl;
+		currIndex += inc;
+		//currIndex *= 2;
+
+
 		//check end
 	} else {
 		controlCamera->computeMatricesFromInputs();
@@ -1682,7 +1691,12 @@ int main(int argc, char **argv) {
 		old_time = current_time;
 		current_time = SDL_GetTicks();
 		ftime = (current_time - old_time) / 1000.0f;
-		//cout << ftime << endl;
+		float a = (current_time - old_time) / 17.0;
+		//cout << a << " " << static_cast<int>(a) << endl;
+		if (!b_firstFrame) {
+			inc = static_cast<int>(a + 0.5);
+			if (inc == 0) inc = 1;
+		}
 
 		keys = SDL_GetKeyboardState(NULL);
 		if (keys[SDL_SCANCODE_W]) {

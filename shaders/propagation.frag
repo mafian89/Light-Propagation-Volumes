@@ -147,7 +147,6 @@ void propagate() {
 		#endif
 
 		float occlusionValue = 1.0; // no occlusion
-		//TODO: Occlusion!!!!
 		//No occlusion for the first step
 		if(!b_firstPropStep && b_useOcclusion) {
 			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
@@ -173,7 +172,6 @@ void propagate() {
 			//Reprojected direction
 			vec3 reprojDirection = getReprojSideDirection( face, mainDirection );
 
-			//TODO: Occlusion!!!!
 			//No occlusion for the first step
 			if(!b_firstPropStep && b_useOcclusion) {
 				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;

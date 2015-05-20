@@ -14,7 +14,6 @@ layout(location=2) out vec4 flux;
 
 void main() {
 
-	//TODO: Pass this as uniform
 	vec3 lightColor = vec3(1.0,1.0,1.0);
 	vec3 diffuse = texture(matTex,uv).rgb;
     vec3 lightDir = normalize( v_lightPos - pos.xyz );
