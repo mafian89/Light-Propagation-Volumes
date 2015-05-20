@@ -51,7 +51,6 @@ CFboManager * fboManager = new CFboManager();
 CFboManager * RSMFboManager = new CFboManager();
 CFboManager * ShadowMapManager = new CFboManager();
 CLightObject * light;
-TimeQuery testQuery("TEST");
 DebugDrawer * dd, *dd_l1, *dd_l2;
 //GLuint depthPassFBO;
 GLint texture_units, max_color_attachments;
@@ -81,6 +80,8 @@ bool b_recordingMode = false;
 bool b_animation = false;
 bool b_lightIntesityOnly = false;
 bool b_compileAndUseAtomicShaders = true;
+bool b_profileMode = false;
+bool b_firstFrame = true;
 
 int volumeDimensionsMult;
 
@@ -117,6 +118,8 @@ unsigned int currIndex = 0;
 void printVector(glm::vec3 v);
 void updateGrid();
 std::fstream keyFrames;
+std::fstream injectTimes, geometryInjectTimes, PropagationTimes, RSMTimes;
+TimeQuery RSM,inject,geometry, propagation;
 
 spline splinePath;
 animationCamera * tmp;
@@ -377,9 +380,22 @@ void Initialize(SDL_Window * w) {
 	}
 
 	if (b_recordingMode) {
-		string filename = "../src/keyFrames.txt";
+		string filename = "../misc/keyFrames.txt";
 		keyFrames.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 	}
+
+	if (b_profileMode) {
+		string path = "../misc/";
+		string filename = path + "inject.txt";
+		injectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+		//filename = path + "geometryInject.txt";
+		//geometryInjectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+		filename = path + "propagation.txt";
+		PropagationTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc); 
+		filename = path + "rsm.txt";
+		RSMTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+	}
+
 	if (!keyFrames.is_open())
 		b_canWriteToFile = false;
 
@@ -1027,7 +1043,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-	testQuery.start();
+	
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -1052,6 +1068,7 @@ void Display() {
 	////////////////////////////////////////////////////
 	// RSM
 	////////////////////////////////////////////////////
+	RSM.start();
 	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
 	rsmShader.Use();
 	glViewport(0, 0, RSMSIZE, RSMSIZE);
@@ -1065,7 +1082,7 @@ void Display() {
 	mesh->render();
 	rsmShader.UnUse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	testQuery.stop();
+	RSM.stop();
 	//std::cout << testQuery.getElapsedTime() << std::endl;
 	////////////////////////////////////////////////////
 	// LIGHT INJECT
@@ -1079,7 +1096,7 @@ void Display() {
 
 	if (b_enableCascades)
 		end = CASCADES;
-
+	inject.start();
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -1221,7 +1238,7 @@ void Display() {
 			}
 		}
 	}
-
+	inject.stop();
 	
 	//float data[5 * 5 * 5 * 4];
 	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
@@ -1235,6 +1252,7 @@ void Display() {
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
 	////////////////////////////////////////////////////
+	propagation.start();
 	if (b_useLayeredFill) {
 		for (int l = 0; l < end; l++) {
 			propagate_layered(l);
@@ -1247,7 +1265,13 @@ void Display() {
 			}
 		}
 	}
+	propagation.stop();
 
+	if (b_profileMode && !b_firstFrame) {
+		RSMTimes << RSM.getElapsedTime() << std::endl;
+		injectTimes << inject.getElapsedTime() << std::endl;
+		PropagationTimes << propagation.getElapsedTime() << std::endl;
+	}
 
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
@@ -1369,6 +1393,7 @@ void Display() {
 	
 
 	delete tmp;
+	b_firstFrame = false;
 	
 }
 
@@ -1402,6 +1427,16 @@ void Finalize(void) {
 	if (keyFrames.is_open()) {
 		keyFrames.close();
 	}
+
+	if (injectTimes.is_open()) {
+		injectTimes.close();
+	}
+	if (PropagationTimes.is_open()) {
+		PropagationTimes.close();
+	}
+	if (RSMTimes.is_open()) {
+		RSMTimes.close();
+	}
 }
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -1431,7 +1466,37 @@ void updateGrid() {
 	//printVector(vMin);
 }
 
-int main() {
+void processParams(int argc, char **argv) {
+	std::string arg, sample;
+	for (int i = 1; i<argc; i++){
+		if (argc > 1) {
+			arg = "";
+			arg.append(argv[i]);
+
+			sample = "-animation";
+			unsigned found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_animation = true;
+				b_profileMode = true;
+			}
+
+			sample = "-atomic";
+			found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_useLayeredFill = false;
+			}
+
+			sample = "-disableCascades";
+			found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_enableCascades = false;
+				b_movableLPV = false;
+			}
+		}
+	}
+}
+
+int main(int argc, char **argv) {
 	//for (int i = 0; i < 25; i++) {
 	//	std::cout << i << ":\t" << i % 5 << ", " << i / 5 << std::endl;
 	//}
@@ -1441,6 +1506,7 @@ int main() {
 	iluInit();
 	//ilutInit();
 
+	processParams(argc, argv);
 
 	SDL_Window *mainwindow; /* Our window handle */
 	SDL_GLContext maincontext; /* Our opengl context handle */
