@@ -29,6 +29,10 @@ uniform bool b_useOcclusion;
 uniform vec3 v_gridDim; //Resolution of the grid
 flat in ivec3 cellIndex;
 
+#define OPTIM
+
+vec3 gridDimDiv = vec3(1) / v_gridDim;
+
 //const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
 //const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
 
@@ -150,7 +154,12 @@ void propagate() {
 		//No occlusion for the first step
 		if(!b_firstPropStep && b_useOcclusion) {
 			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
-			vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			#ifndef OPTIM
+				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			#else
+				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) * gridDimDiv;
+			#endif
+			
 			vec4 occCoeffs = texture(GeometryVolume, occCoord);
 			occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -mainDirection )),0.0,1.0 );
 		}
@@ -174,7 +183,11 @@ void propagate() {
 
 			//No occlusion for the first step
 			if(!b_firstPropStep && b_useOcclusion) {
-				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				#ifndef OPTIM
+					vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				#else
+					vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) * gridDimDiv;
+				#endif
 				vec4 occCoeffs = texture(GeometryVolume, occCoord);
 				occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -evalDirection )),0.0,1.0 );
 			}

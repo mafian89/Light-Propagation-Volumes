@@ -43,15 +43,33 @@ vec4 evalSH_direct( vec3 direction ) {
 	return vec4( SH_C0, -SH_C1 * direction.y, SH_C1 * direction.z, -SH_C1 * direction.x );
 }
 
-bool isBorder(ivec3 i) {
-	if (i.x == 0 || i.x > int(v_gridDim.x))
+/*bool isBorder(ivec3 i) {
+	if (i.x == 0 || i.x == int(v_gridDim.x))
 		return true;
-	if (i.y == 0 || i.y > int(v_gridDim.y))
+	if (i.y == 0 || i.y == int(v_gridDim.y))
 		return true;
-	if (i.z == 0 || i.z > int(v_gridDim.z))
+	if (i.z == 0 || i.z == int(v_gridDim.z))
 		return true;
 	return false;
+}*/
+
+ivec4 isBorder(ivec3 i) {
+	ivec4 ret = ivec4(0);
+	if (i.x == 0 || i.x == int(v_gridDim.x)) {
+		ret.w = 1;
+		ret.x = 1;
+	}
+	if (i.y == 0 || i.y == int(v_gridDim.y)) {
+		ret.w = 1;
+		ret.y = 1;
+	}
+	if (i.z == 0 || i.z == int(v_gridDim.z)) {
+		ret.w = 1;
+		ret.z = 1;
+	}
+	return ret;
 }
+
 
 bool isInside(vec3 i) {
 	if (i.x < 0 || i.x > int(v_gridDim.x))
@@ -108,32 +126,43 @@ void main()
 			dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords ) )
 		);
 	} else {
+		//l2 is the finest
 		vec3 lpvCellCoords_l2 = (worldPos - v_allGridMins[2]) / v_allCellSizes.z;
 		vec3 lpvCellCoords_l1 = (worldPos - v_allGridMins[1]) / v_allCellSizes.y;
 		vec3 lpvCellCoords_l0 = (worldPos - v_allGridMins[0]) / v_allCellSizes.x;
 
+		vec3 lpvIntensity_l2 = vec3(0);
+		vec3 lpvIntensity_l1 = vec3(0);
+		vec3 lpvIntensity_l0 = vec3(0);
+
 		lpvCellCoords_l2 /= v_gridDim;
-		vec3 lpvIntensity_l0 = vec3( 
+		lpvIntensity_l2 = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV_l2, lpvCellCoords_l2) ),
 			dot( SHintensity, texture( GAccumulatorLPV_l2, lpvCellCoords_l2 ) ),
 			dot( SHintensity, texture( BAccumulatorLPV_l2, lpvCellCoords_l2 ) )
 		);
 
+
 		lpvCellCoords_l1 /= v_gridDim;
-		vec3 lpvIntensity_l1 = vec3( 
+		lpvIntensity_l1 = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV_l1, lpvCellCoords_l1) ),
 			dot( SHintensity, texture( GAccumulatorLPV_l1, lpvCellCoords_l1 ) ),
 			dot( SHintensity, texture( BAccumulatorLPV_l1, lpvCellCoords_l1 ) )
 		);
 
 		lpvCellCoords_l0 /= v_gridDim;
-		vec3 lpvIntensity_l2 = vec3( 
+		lpvIntensity_l0 = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV_l0, lpvCellCoords_l0) ),
 			dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords_l0 ) ),
 			dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords_l0 ) )
 		);
+		vec3 i = abs(vec3(0.0) - vec3(0.3));
+		vec3 i2 = abs(vec3(0.0) - vec3(0.3));
+		vec3 i3 = abs(vec3(0.0) - vec3(0.3));
 
-		lpvIntensity = (lpvIntensity_l0*vec3(0.5) + lpvIntensity_l1*vec3(0.75) + lpvIntensity_l2);
+		//vec3 resultRGB = mix(lpvIntensity_l2, lpvIntensity_l1,0.5);
+		lpvIntensity = (lpvIntensity_l0 + lpvIntensity_l1 + lpvIntensity_l2);
+		//lpvIntensity = (i,i2,i3);
 	}
 
 

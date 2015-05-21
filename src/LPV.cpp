@@ -70,18 +70,36 @@ float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
 bool b_useOcclusion = true;
-bool b_useLayeredFill = true;
 bool b_useMultiStepPropagation  = true;
-bool b_movableLPV = true;
 bool b_enableGI = true;
-bool b_enableCascades = true;
 bool b_canWriteToFile = true;
 bool b_recordingMode = false;
-bool b_animation = false;
 bool b_lightIntesityOnly = false;
 bool b_compileAndUseAtomicShaders = true;
-bool b_profileMode = false;
 bool b_firstFrame = true;
+
+bool b_animation = false;
+bool b_profileMode = false;
+
+//1
+bool b_enableCascades = true;
+bool b_useLayeredFill = true;
+bool b_movableLPV = true;
+
+//2
+//bool b_enableCascades = true;
+//bool b_useLayeredFill = false;
+//bool b_movableLPV = true;
+
+//3
+//bool b_enableCascades = false;
+//bool b_useLayeredFill = true;
+//bool b_movableLPV = false;
+
+//4
+//bool b_enableCascades = false;
+//bool b_useLayeredFill = false;
+//bool b_movableLPV = false;
 
 int volumeDimensionsMult;
 
@@ -119,7 +137,7 @@ void printVector(glm::vec3 v);
 void updateGrid();
 std::fstream keyFrames;
 std::fstream injectTimes, geometryInjectTimes, PropagationTimes, RSMTimes;
-TimeQuery RSM,inject,geometry, propagation;
+TimeQuery RSM,inject,geometry, propagation, finalLighting;
 
 spline splinePath;
 animationCamera * tmp;
@@ -388,11 +406,13 @@ void Initialize(SDL_Window * w) {
 		string path = "../misc/";
 		string gridSize = std::to_string(MAX_GRID_SIZE);
 		string propagations = std::to_string(PROPAGATION_STEPS);
-		string filename = path + "inject_" + gridSize + "_" + propagations + ".txt";
+		string layered = (b_useLayeredFill) ? "layered" : "atomic";
+		string cascaded = (b_enableCascades) ? "cascaded" : "single";
+		string filename = path + "inject_" + gridSize + "_" + propagations + "_" + cascaded + "_" + layered + ".txt";
 		injectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 		//filename = path + "geometryInject.txt";
 		//geometryInjectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
-		filename = path + "propagation_" + gridSize + "_" + propagations + ".txt";
+		filename = path + "propagation_" + gridSize + "_" + propagations + "_" + cascaded + "_" + layered + ".txt";
 		PropagationTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc); 
 		filename = path + "rsm.txt";
 		RSMTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
@@ -529,6 +549,7 @@ void Initialize(SDL_Window * w) {
 	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
 	//Debug
 	//controlCamera->initControlCamera(glm::vec3(-2.30154, 12.166, -0.327947), w, 3.14802, -0.723001, WIDTH, HEIGHT, 1.0, 1000.0);
+	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
 	controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), w, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
@@ -991,7 +1012,7 @@ void Display() {
 	glm::mat4 m = glm::mat4(1.0f);
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
-	glm::mat4 v, mvp, mv, vp,p;
+	glm::mat4 v, mvp, mv, vp, p;
 	glm::mat3 mn;
 	if (b_animation) {
 		//std::cout << currIndex << "/" << splinePath.getSplineCameraPath().size() - 1 << std::endl;
@@ -1013,7 +1034,8 @@ void Display() {
 
 
 		//check end
-	} else {
+	}
+	else {
 		controlCamera->computeMatricesFromInputs();
 		v = controlCamera->getViewMatrix();
 		p = controlCamera->getProjectionMatrix();
@@ -1052,7 +1074,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-	
+
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -1248,7 +1270,7 @@ void Display() {
 		}
 	}
 	inject.stop();
-	
+
 	//float data[5 * 5 * 5 * 4];
 	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
 	//glBindTexture(GL_TEXTURE_3D, texManager["LPVGridR"]);
@@ -1256,7 +1278,7 @@ void Display() {
 	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
 
 
-	
+
 
 	////////////////////////////////////////////////////
 	// LIGHT PROPAGATION
@@ -1281,7 +1303,10 @@ void Display() {
 		injectTimes << inject.getElapsedTime() << std::endl;
 		PropagationTimes << propagation.getElapsedTime() << std::endl;
 	}
-
+	//cout << endl << "PROP: " << propagation.getElapsedTime() << endl;
+	//cout << "INJECT: " << inject.getElapsedTime() << endl;
+	//cout << "PROP: " << propagation.getElapsedTime() << endl;
+	finalLighting.start();
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
 	////////////////////////////////////////////////////
@@ -1350,7 +1375,7 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-#ifdef GRIDS_DEBUG
+#ifndef GRIDS_DEBUG
 	dd->setVPMatrix(mvp);
 	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
 	dd->draw();
@@ -1388,6 +1413,8 @@ void Display() {
 #endif
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	finalLighting.stop();
+	//std::cout << finalLighting.getElapsedTime() << endl;
 
 	////////////////////////////////////////////////////
 	// FINAL COMPOSITION
