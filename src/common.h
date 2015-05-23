@@ -38,3 +38,4 @@
 #define USESAMPLER3D
 #define PROPAGATION_STEPS 8
 #define CASCADES 3
+#define MAX_CELL_SIZE 2.5

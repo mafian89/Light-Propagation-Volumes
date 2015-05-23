@@ -41,11 +41,11 @@ void main()
 		discard;
 	}
 	vec3 lightDir = normalize( v_lightPos - v_GSposFromRSM); //Both are in World space
-	//float blockingPotencial = calculateBlockingPotencial(lightDir, v_GSnormalFromRSM);
+	float blockingPotencial = calculateBlockingPotencial(lightDir, v_GSnormalFromRSM);
 
-	//vec4 SHCoeffGV = evalCosineLobeToDir(v_GSnormalFromRSM) * blockingPotencial;
+	vec4 SHCoeffGV = evalCosineLobeToDir(v_GSnormalFromRSM) * blockingPotencial;
 	//GSsurfelArea
-	vec4 SHCoeffGV = evalCosineLobeToDir(v_GSnormalFromRSM) * GSsurfelArea;
+	//vec4 SHCoeffGV = evalCosineLobeToDir(v_GSnormalFromRSM) * GSsurfelArea;
 	
 	GeometryVolume = SHCoeffGV;
 }

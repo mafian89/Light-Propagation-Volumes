@@ -31,8 +31,11 @@ uniform float f_indirectAttenuation;
 uniform bool b_enableGI;
 uniform bool b_enableCascades;
 uniform bool b_lightIntesityOnly;
+uniform bool b_interpolateBorders;
 uniform vec3 v_allGridMins[CASCADES];
 uniform vec3 v_allCellSizes; //x - level 0 cellSize, y - level 1 cellSize, z - level 2 cellSize
+
+vec3 blendRegion = vec3(0.3);
 
 /*Spherical harmonics coefficients - precomputed*/
 #define SH_C0 0.282094792f // 1 / 2sqrt(pi)
@@ -53,24 +56,6 @@ vec4 evalSH_direct( vec3 direction ) {
 	return false;
 }*/
 
-ivec4 isBorder(ivec3 i) {
-	ivec4 ret = ivec4(0);
-	if (i.x == 0 || i.x == int(v_gridDim.x)) {
-		ret.w = 1;
-		ret.x = 1;
-	}
-	if (i.y == 0 || i.y == int(v_gridDim.y)) {
-		ret.w = 1;
-		ret.y = 1;
-	}
-	if (i.z == 0 || i.z == int(v_gridDim.z)) {
-		ret.w = 1;
-		ret.z = 1;
-	}
-	return ret;
-}
-
-
 bool isInside(vec3 i) {
 	if (i.x < 0 || i.x > int(v_gridDim.x))
 		return false;
@@ -81,6 +66,26 @@ bool isInside(vec3 i) {
 	return true;
 }
 
+ivec4 isBorder(vec3 i) {
+	ivec4 ret = ivec4(0);
+	if(isInside(i)) {
+		if (i.x == 0 || i.x == int(v_gridDim.x)) {
+			ret.w = 1;
+			ret.x = 1;
+		}
+		if (i.y == 0 || i.y == int(v_gridDim.y)) {
+			ret.w = 1;
+			ret.y = 1;
+		}
+		if (i.z == 0 || i.z == int(v_gridDim.z)) {
+			ret.w = 1;
+			ret.z = 1;
+		}
+	}
+	return ret;
+}
+
+
 void main()
 {
 	float shadow = 1.0;
@@ -89,7 +94,7 @@ void main()
 		shadow = texture(depthTexture, vec3(coord.xyz)-vec3(0.00001));
 		//textureProj does perspective division for me
 		//shadow = textureProj(depthTexture, shadowCoord);
-		shadow = (shadow > 0) ? 1.0 : 0.1;
+		shadow = (shadow > 0) ? 1.0 : 0.05;
 	}
 	float distance = length(eyeLightPos.xyz-eyePosition.xyz);
 	float att=1.0/(0.0005+0.009*distance+0.00035*distance*distance);
@@ -142,7 +147,6 @@ void main()
 			dot( SHintensity, texture( BAccumulatorLPV_l2, lpvCellCoords_l2 ) )
 		);
 
-
 		lpvCellCoords_l1 /= v_gridDim;
 		lpvIntensity_l1 = vec3( 
 			dot( SHintensity, texture( RAccumulatorLPV_l1, lpvCellCoords_l1) ),
@@ -156,13 +160,9 @@ void main()
 			dot( SHintensity, texture( GAccumulatorLPV_l0, lpvCellCoords_l0 ) ),
 			dot( SHintensity, texture( BAccumulatorLPV_l0, lpvCellCoords_l0 ) )
 		);
-		vec3 i = abs(vec3(0.0) - vec3(0.3));
-		vec3 i2 = abs(vec3(0.0) - vec3(0.3));
-		vec3 i3 = abs(vec3(0.0) - vec3(0.3));
 
-		//vec3 resultRGB = mix(lpvIntensity_l2, lpvIntensity_l1,0.5);
+
 		lpvIntensity = (lpvIntensity_l0 + lpvIntensity_l1 + lpvIntensity_l2);
-		//lpvIntensity = (i,i2,i3);
 	}
 
 
@@ -173,7 +173,8 @@ void main()
 	if(b_enableGI) {
 		GI = kd * finalLPVRadiance;
 	}
-	vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + GI;
+	//vec3 lightIntesity =  sDotN * la * kd * shadow + la * spec * shadow + GI;
+	vec3 lightIntesity =  sDotN * la * kd * shadow + GI;
 	if(b_lightIntesityOnly) {
 		final_color = vec4(finalLPVRadiance,1.0);
 	} else {

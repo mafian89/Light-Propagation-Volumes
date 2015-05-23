@@ -27,7 +27,7 @@ private:
 		cellSize = maxLength / MAX_GRID_SIZE;*/
 
 		center = glm::vec3(0);
-		cellSize = 2.0 * scale;
+		cellSize = MAX_CELL_SIZE * scale;
 		min = center - glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
 		max = center + glm::vec3(MAX_GRID_SIZE*0.5 * cellSize);
 		centerToMin = min - center;

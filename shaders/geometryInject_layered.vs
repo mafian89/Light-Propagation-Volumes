@@ -42,7 +42,7 @@ void main()
 	v_normalFromRSM = texelFetch(rsm_normal_tex, v_RSMCoords,0).rgb;
 
 	vec4 viewPos = m_lightView * vec4(v_posFromRSM,1.0);
-	surfelArea = calculateSurfelAreaLightViewM(viewPos.xyz) *  f_texelAreaModifier;
+	surfelArea = calculateSurfelAreaLightOrtho(viewPos.xyz) *  f_texelAreaModifier;
 
 	v_volumeCellIndex = convertPointToGridIndex(v_posFromRSM);
 

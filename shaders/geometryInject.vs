@@ -49,7 +49,7 @@ void main()
 
 	#ifdef LIGHTVIEW
 		vec4 viewPos = m_lightView * vec4(v_posFromRSM,1.0);
-		surfelArea = calculateSurfelAreaLightViewM(viewPos.xyz) *  f_texelAreaModifier;
+		surfelArea = calculateSurfelAreaLightOrtho(viewPos.xyz) *  f_texelAreaModifier;
 	#else
 		surfelArea = calculateSurfelAreaLight(v_lightPos) * f_texelAreaModifier;
 		//surfelArea = calculateSurfelAreaLightOrtho(v_lightPos)* f_texelAreaModifier;

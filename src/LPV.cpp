@@ -73,18 +73,24 @@ bool b_useOcclusion = true;
 bool b_useMultiStepPropagation  = true;
 bool b_enableGI = true;
 bool b_canWriteToFile = true;
-bool b_recordingMode = false;
 bool b_lightIntesityOnly = false;
 bool b_compileAndUseAtomicShaders = true;
 bool b_firstFrame = true;
+bool b_interpolateBorders = true;
 
+bool b_recordingMode = false;
 bool b_animation = false;
+
+//bool b_recordingMode = true;
+//bool b_animation = false;
+
 bool b_profileMode = false;
+bool b_showGrids = false;
 
 //1
-bool b_enableCascades = true;
-bool b_useLayeredFill = true;
-bool b_movableLPV = true;
+//bool b_enableCascades = true;
+//bool b_useLayeredFill = true;
+//bool b_movableLPV = true;
 
 //2
 //bool b_enableCascades = true;
@@ -92,9 +98,9 @@ bool b_movableLPV = true;
 //bool b_movableLPV = true;
 
 //3
-//bool b_enableCascades = false;
-//bool b_useLayeredFill = true;
-//bool b_movableLPV = false;
+bool b_enableCascades = false;
+bool b_useLayeredFill = true;
+bool b_movableLPV = false;
 
 //4
 //bool b_enableCascades = false;
@@ -318,7 +324,7 @@ void initInjectFBOs() {
 		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 
 		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
@@ -437,7 +443,7 @@ void Initialize(SDL_Window * w) {
 	Light horizotnal angle: 3.139
 	Light vertical angle: -1.2445
 	*/
-	light = new CLightObject(glm::vec3(-0.197587, 65.0856, 10.0773), glm::vec3(0.000831289, -0.947236, -0.320536));
+	light = new CLightObject(glm::vec3(-0.197587, 55.0856, 10.0773), glm::vec3(0.000831289, -0.947236, -0.320536));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-1.2445);
 #else
@@ -514,43 +520,15 @@ void Initialize(SDL_Window * w) {
 	// CAMERA INIT
 	////////////////////////////////////////////////////
 	/*
-	Camera POSITION vector: (11.7542, 14.1148, 0.822185)
-	Camera UP vector: (-0.436604, 0.873719, -0.214456)
-	Camera RIGHT vector: (0.440876, 0, -0.897568)
-	Camera DIRECTION vector: (-0.783916, -0.486431, -0.385826)
-	Camera horizotnal angle: 4.25502
-	Camera vertical angle: -0.508
-
-	//Blocking view
-	Camera POSITION vector: (10.7061, 12.0907, -8.37268)
-	Camera UP vector: (-0.410051, 0.907291, 0.0931737)
-	Camera RIGHT vector: (-0.221577, 0, -0.975143)
-	Camera DIRECTION vector: (-0.884898, -0.420503, 0.20033)
-	Camera horizotnal angle: 4.93502
-	Camera vertical angle: -0.434
-
-	Camera POSITION vector: (5.95956, 10.9459, -0.109317)
-	Camera UP vector: (-0.348451, 0.93519, -0.063252)
-	Camera RIGHT vector: (0.178604, 0, -0.983921)
-	Camera DIRECTION vector: (-0.92002, -0.354145, -0.167762)
-	Camera horizotnal angle: 4.53202
-	Camera vertical angle: -0.362
-
-	Camera POSITION vector: (-2.30154, 12.166, -0.327947)
-	Camera UP vector: (-0.00477892, 0.749824, -0.66162)
-	Camera RIGHT vector: (0.999974, 0, -0.00722287)
-	Camera DIRECTION vector: (-0.00481883, -0.661638, -0.749808)
-	Camera horizotnal angle: 3.14802
-	Camera vertical angle: -0.723001
+	Camera POSITION vector: (31.4421, 21.1158, 3.80755)
+	Camera UP vector: (-0.203285, 0.977082, -0.063123)
+	Camera RIGHT vector: (0.296548, 0, -0.955018)
+	Camera DIRECTION vector: (-0.932901, -0.21286, -0.290494)
+	Camera horizotnal angle: 4.41052
+	Camera vertical angle: -0.214501
 	*/
 	//Normal camera
-	//controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, WIDTH, HEIGHT, 1.0, 1000.0);
-	//Blocking view
-	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
-	//Debug
-	//controlCamera->initControlCamera(glm::vec3(-2.30154, 12.166, -0.327947), w, 3.14802, -0.723001, WIDTH, HEIGHT, 1.0, 1000.0);
-	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
-	controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), w, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
+	controlCamera->initControlCamera(glm::vec3(31.4421, 21.1158, 3.80755), w, 4.41052, -0.214501, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -580,6 +558,7 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("b_enableGI");
 	basicShader.AddUniform("b_enableCascades");
 	basicShader.AddUniform("b_lightIntesityOnly");
+	basicShader.AddUniform("b_interpolateBorders");
 	basicShader.AddUniform("v_allGridMins");
 	basicShader.AddUniform("v_allCellSizes");
 	basicShader.UnUse();
@@ -705,7 +684,7 @@ void Initialize(SDL_Window * w) {
 	////////////////////////////////////////////////////
 	// LOAD MODELS & FILL THE VARIABLES
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/sponza.obj");
+	mesh = new Mesh("../models/sponza_2.obj");
 	levels[0] = mesh->getBoundingBox()->getGrid();
 	volumeDimensions = levels[0].getDimensions();
 	cellSize = levels[0].getCellSize();
@@ -1351,6 +1330,7 @@ void Display() {
 	glUniform1i(basicShader("b_enableGI"), b_enableGI);
 	glUniform1i(basicShader("b_enableCascades"), b_enableCascades);
 	glUniform1i(basicShader("b_lightIntesityOnly"), b_lightIntesityOnly);
+	glUniform1i(basicShader("b_interpolateBorders"), b_interpolateBorders);
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
 	v_allGridMins[0] = levels[0].getMin();
@@ -1375,19 +1355,19 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-#ifndef GRIDS_DEBUG
-	dd->setVPMatrix(mvp);
-	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
-	dd->draw();
-	if (CASCADES >= 3) {
-		dd_l1->setVPMatrix(mvp);
-		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
-		dd_l1->draw();
-		dd_l2->setVPMatrix(mvp);
-		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
-		dd_l2->draw();
+	if (b_showGrids) {
+		dd->setVPMatrix(mvp);
+		dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
+		dd->draw();
+		if (CASCADES >= 3) {
+			dd_l1->setVPMatrix(mvp);
+			dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
+			dd_l1->draw();
+			dd_l2->setVPMatrix(mvp);
+			dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
+			dd_l2->draw();
+		}
 	}
-#endif
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1688,6 +1668,9 @@ int main(int argc, char **argv) {
 				if (event.key.keysym.sym == SDLK_m) {
 					b_movableLPV = !b_movableLPV;
 				}
+				if (event.key.keysym.sym == SDLK_n) {
+					b_showGrids = !b_showGrids;
+				}
 				if (event.key.keysym.sym == SDLK_g) {
 					b_enableGI = !b_enableGI;
 				}
@@ -1724,6 +1707,9 @@ int main(int argc, char **argv) {
 				}
 				if (event.key.keysym.sym == SDLK_i) {
 					b_lightIntesityOnly = !b_lightIntesityOnly;
+				}
+				if (event.key.keysym.sym == SDLK_k) {
+					b_interpolateBorders = !b_interpolateBorders;
 				}
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					//std::cout << "ESC\n";
