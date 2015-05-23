@@ -64,8 +64,8 @@ float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
-float f_indirectAttenuation = 1.2f;
-float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
+float f_indirectAttenuation = 0.7f;
+float initialCamHorAngle = 4.41052, initialCamVerAngle = -0.214501;
 
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
@@ -88,9 +88,9 @@ bool b_profileMode = false;
 bool b_showGrids = false;
 
 //1
-//bool b_enableCascades = true;
-//bool b_useLayeredFill = true;
-//bool b_movableLPV = true;
+bool b_enableCascades = true;
+bool b_useLayeredFill = true;
+bool b_movableLPV = true;
 
 //2
 //bool b_enableCascades = true;
@@ -98,9 +98,9 @@ bool b_showGrids = false;
 //bool b_movableLPV = true;
 
 //3
-bool b_enableCascades = false;
-bool b_useLayeredFill = true;
-bool b_movableLPV = false;
+//bool b_enableCascades = false;
+//bool b_useLayeredFill = true;
+//bool b_movableLPV = false;
 
 //4
 //bool b_enableCascades = false;
@@ -133,8 +133,7 @@ GLuint geometryInjectCascadeTextures[CASCADES];
 CFboManager propagationFBOs[CASCADES][PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
-
-glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
+glm::vec3 initialCameraPos = glm::vec3(31.4421, 21.1158, 3.80755);
 
 int level_global = 0;
 unsigned int currIndex = 0;
@@ -1658,10 +1657,12 @@ int main(int argc, char **argv) {
 				}
 				if (event.key.keysym.sym == SDLK_c) {
 					f_indirectAttenuation += 0.1;
+					//cout << f_indirectAttenuation << endl;
 				}
 				if (event.key.keysym.sym == SDLK_v) {
 					if (f_indirectAttenuation >= 0.2) {
 						f_indirectAttenuation -= 0.1;
+						//cout << f_indirectAttenuation << endl;
 					}
 				}
 
@@ -1696,7 +1697,7 @@ int main(int argc, char **argv) {
 					}
 				}
 				if (event.key.keysym.sym == SDLK_r){
-					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
+					controlCamera->initControlCamera(initialCameraPos, mainwindow, initialCamHorAngle, initialCamVerAngle, WIDTH, HEIGHT, 1.0, 1000.0);
 					controlCamera->moved = true;
 					controlCamera->computeMatricesFromInputs();
 					controlCamera->moved = false;
