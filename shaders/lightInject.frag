@@ -45,9 +45,9 @@ void main()
 		discard;
 	}*/
 
-	vec4 SHCoeffsR = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.r;
-	vec4 SHCoeffsG = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.g;
-	vec4 SHCoeffsB = evalCosineLobeToDir(v_normalFromRSM) * v_fluxFromRSM.b;
+	vec4 SHCoeffsR = evalCosineLobeToDir(v_normalFromRSM)/ PI * v_fluxFromRSM.r;
+	vec4 SHCoeffsG = evalCosineLobeToDir(v_normalFromRSM)/ PI * v_fluxFromRSM.g;
+	vec4 SHCoeffsB = evalCosineLobeToDir(v_normalFromRSM)/ PI * v_fluxFromRSM.b;
 
 
 	imageAtomicAdd(LPVGridR,v_volumeCellIndex,f16vec4(SHCoeffsR));

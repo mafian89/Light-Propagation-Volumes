@@ -64,12 +64,11 @@ float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
-float f_indirectAttenuation = 0.7f;
+float f_indirectAttenuation = 1.7f;
 float initialCamHorAngle = 4.41052, initialCamVerAngle = -0.214501;
 
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
-bool b_useOcclusion = true;
 bool b_useMultiStepPropagation  = true;
 bool b_enableGI = true;
 bool b_canWriteToFile = true;
@@ -79,13 +78,14 @@ bool b_firstFrame = true;
 bool b_interpolateBorders = true;
 
 bool b_recordingMode = false;
-bool b_animation = false;
+bool b_animation = true;
 
 //bool b_recordingMode = true;
 //bool b_animation = false;
 
 bool b_profileMode = false;
 bool b_showGrids = false;
+bool b_useOcclusion = true;
 
 //1
 bool b_enableCascades = true;
@@ -442,7 +442,7 @@ void Initialize(SDL_Window * w) {
 	Light horizotnal angle: 3.139
 	Light vertical angle: -1.2445
 	*/
-	light = new CLightObject(glm::vec3(-0.197587, 55.0856, 10.0773), glm::vec3(0.000831289, -0.947236, -0.320536));
+	light = new CLightObject(glm::vec3(-0.197587, 65.0856, 10.0773), glm::vec3(0.000831289, -0.947236, -0.320536));
 	light->setHorAngle(3.139);
 	light->setVerAngle(-1.2445);
 #else
@@ -525,9 +525,19 @@ void Initialize(SDL_Window * w) {
 	Camera DIRECTION vector: (-0.932901, -0.21286, -0.290494)
 	Camera horizotnal angle: 4.41052
 	Camera vertical angle: -0.214501
+
+	//Compare
+	Camera POSITION vector: (35.7994, 4.02377, -0.424968)
+	Camera UP vector: (-0.0519772, 0.998648, -0.000185819)
+	Camera RIGHT vector: (0.00357499, 0, -0.999994)
+	Camera DIRECTION vector: (-0.998639, -0.0519775, -0.00436523)
+	Camera horizotnal angle: 4.70802
+	Camera vertical angle: -0.052001
 	*/
 	//Normal camera
 	controlCamera->initControlCamera(glm::vec3(31.4421, 21.1158, 3.80755), w, 4.41052, -0.214501, WIDTH, HEIGHT, 1.0, 1000.0);
+	//Compare
+	//controlCamera->initControlCamera(glm::vec3(35.7994, 4.02377, -0.424968), w, 4.70802, -0.052001, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -694,8 +704,8 @@ void Initialize(SDL_Window * w) {
 	delete bb_l0;
 
 	if (CASCADES >= 3) {
-		levels[1] = Grid(levels[0], 0.5,1);
-		levels[2] = Grid(levels[1], 0.25,2);
+		levels[1] = Grid(levels[0], 0.65,1);
+		levels[2] = Grid(levels[1], 0.4,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -1283,7 +1293,7 @@ void Display() {
 	}
 	//cout << endl << "PROP: " << propagation.getElapsedTime() << endl;
 	//cout << "INJECT: " << inject.getElapsedTime() << endl;
-	//cout << "PROP: " << propagation.getElapsedTime() << endl;
+	//cout << "RSM: " << RSM.getElapsedTime() << endl;
 	finalLighting.start();
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
@@ -1712,6 +1722,14 @@ int main(int argc, char **argv) {
 				if (event.key.keysym.sym == SDLK_k) {
 					b_interpolateBorders = !b_interpolateBorders;
 				}
+				if (event.key.keysym.sym == SDLK_KP_MINUS) {
+					light->setVerAngle(light->getVerAngle() - 0.01f);
+					//cout << light->getVerAngle() << endl;
+				}
+				if (event.key.keysym.sym == SDLK_KP_PLUS) {
+					light->setVerAngle(light->getVerAngle() + 0.01f);
+					//cout << light->getVerAngle() << endl;
+				}
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					//std::cout << "ESC\n";
 					kill();
@@ -1763,12 +1781,7 @@ int main(int argc, char **argv) {
 		//else if (keys[SDL_SCANCODE_KP_3]) {
 		//	light->setPosition(light->getPosition() + (glm::vec3(0, 0, 1)* movementSpeed * ftime));
 		//}
-		else if (keys[SDL_SCANCODE_KP_MINUS]) {
-			light->setVerAngle(light->getVerAngle() - 0.01f);
-		}
-		else if (keys[SDL_SCANCODE_KP_PLUS]) {
-			light->setVerAngle(light->getVerAngle() + 0.01f);
-		}
+
 		else if (keys[SDL_SCANCODE_KP_DIVIDE]) {
 			light->setHorAngle(light->getHorAngle() + 0.01f);
 		}
