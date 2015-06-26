@@ -1,3 +1,8 @@
+/*
+* File:   CTextureViewer.h
+* Desc:		Jednoducha trida pro zobrazeni obsahu textury
+*
+*/
 #ifndef CTEXTUREVIEWER_H
 #define CTEXTUREVIEWER_H
 

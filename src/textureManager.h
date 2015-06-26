@@ -1,3 +1,8 @@
+/*
+* File:   textureManager.h
+* Desc:		Trida pro spravu textur
+*
+*/
 #ifndef TEXTUREMANAGER_H
 #define TEXTUREMANAGER_H
 

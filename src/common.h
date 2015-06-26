@@ -13,7 +13,11 @@
 #include <IL/il.h>
 #include <IL/ilu.h>
 #include <IL/ilut.h>
-
+/*
+* File:   common.h
+* Desc:
+*
+*/
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
 #include <assimp/Importer.hpp>
@@ -36,6 +40,7 @@
 //#define GRIDS_DEBUG
 #define ORTHO_PROJECTION
 #define USESAMPLER3D
-#define PROPAGATION_STEPS 8
+//#define PROPAGATION_STEPS 8
+#define MAX_PROPAGATION_STEPS 12
 #define CASCADES 3
 #define MAX_CELL_SIZE 2.5

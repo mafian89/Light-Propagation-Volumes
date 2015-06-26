@@ -67,17 +67,6 @@ float innerProduct(vec4 sh1, vec4 sh2) {
 	return sh1.x*sh2.x + sh1.y*sh2.y + sh1.z*sh2.z + sh1.w*sh2.w; 
 }
 
-/*
-bool isInside(ivec3 i) {
-	if(i.x < 0 || i.x > int(v_gridDim.x))
-		return false;
-	if(i.y < 0 || i.y > int(v_gridDim.y))
-		return false;
-	if(i.z < 0 || i.z > int(v_gridDim.z))
-		return false;
-	return true;
-}*/
-
 const ivec3 propDirections[6] = {
 	//+Z
 	ivec3(0,0,1),

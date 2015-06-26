@@ -46,16 +46,6 @@ vec4 evalSH_direct( vec3 direction ) {
 	return vec4( SH_C0, -SH_C1 * direction.y, SH_C1 * direction.z, -SH_C1 * direction.x );
 }
 
-/*bool isBorder(ivec3 i) {
-	if (i.x == 0 || i.x == int(v_gridDim.x))
-		return true;
-	if (i.y == 0 || i.y == int(v_gridDim.y))
-		return true;
-	if (i.z == 0 || i.z == int(v_gridDim.z))
-		return true;
-	return false;
-}*/
-
 bool isInside(vec3 i) {
 	if (i.x < 0 || i.x > int(v_gridDim.x))
 		return false;
@@ -168,7 +158,6 @@ void main()
 
 	vec3 finalLPVRadiance = (f_indirectAttenuation / PI)*  max( lpvIntensity, 0 ) ;
 
-	//vec3 lightIntesity =  shadow*(ambient + diffuse + spec)*att;
 	vec3 GI = vec3(0.0);
 	if(b_enableGI) {
 		GI = kd * finalLPVRadiance;
@@ -181,9 +170,4 @@ void main()
 		final_color = vec4(lightIntesity,1.0);
 	}
 
-
-	//normals = vec4(tmpNormal,1.0);
-
-    //final_color = texture2D(texture, uv);
-	//final_color = vec4(1.0,0.0,0.0,1.0);
 }

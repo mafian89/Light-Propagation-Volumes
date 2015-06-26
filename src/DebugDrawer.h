@@ -1,3 +1,8 @@
+/*
+* File:   DebugDrawer.h
+* Desc:		Jednotucha trida pro vykreslovani v ramci ladeni
+*
+*/
 #ifndef DEBUGDRAWER_H
 #define DEBUGDRAWER_H
 

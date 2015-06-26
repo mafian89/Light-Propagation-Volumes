@@ -1,3 +1,8 @@
+/*
+* File:   fboManager.h
+* Desc:		Jednoduchy "manager" pro FBO objekty
+*
+*/
 #ifndef FBOMANAGER_H
 #define FBOMANAGER_H
 

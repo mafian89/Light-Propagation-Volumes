@@ -1,3 +1,8 @@
+/*
+* File:   GBuffer.h
+* Desc:		GBuffer
+*
+*/
 #ifndef GBUFFER_H
 #define GBUFFER_H
 

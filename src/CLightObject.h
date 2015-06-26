@@ -1,3 +1,8 @@
+/*
+* File:   CLightObject.h
+* Desc:		Trida reprezentujici svetlo ve scene
+*
+*/
 #ifndef CLIGHTOBJECT_H
 #define CLIGHTOBJECT_H
 #pragma once

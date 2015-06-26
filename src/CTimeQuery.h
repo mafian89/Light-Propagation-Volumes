@@ -1,3 +1,8 @@
+/*
+* File:   CTimeQuery.h
+* Desc:		Trida pro mereni casu
+*
+*/
 #ifndef CTIMEQUERY_H
 #define CTIMEQUERY_H
 

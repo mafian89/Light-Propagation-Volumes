@@ -38,24 +38,6 @@ void CTextureManager::createTexture(const string& texture, const string filePath
 			//glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_LUMINANCE);
 		}
 	} 
-	//else {
-	//	surface = IMG_Load(filePath.c_str());
-	//	if (!surface) {
-	//		std::cout<<"Cannot load image!"<<std::endl;
-	//		std::cout << filePath << std::endl;
-	//		return;
-	//	}
-	//	if (surface->format->BytesPerPixel == 3) { // RGB 24bit
-	//			mode = GL_RGB;
-	//	} else if (surface->format->BytesPerPixel == 4) { // RGBA 32bit
-	//		mode = GL_RGBA;
-	//	} else {
-	//		SDL_FreeSurface(surface);
-	//	}
-	//	glTexImage2D(GL_TEXTURE_2D, 0, mode, surface->w, surface->h, 0, mode, GL_UNSIGNED_BYTE, surface->pixels);
-	//	SDL_FreeSurface(surface);
-	//}
-	//glBindTexture(GL_TEXTURE_2D,0);
 }
 
 void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
