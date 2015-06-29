@@ -32,9 +32,6 @@ vec4 evalCosineLobeToDir(vec3 dir) {
 
 //(As * clamp(dot(ns,w),0.0,1.0))/(cellsize * cellsize)
 float calculateBlockingPotencial(vec3 dir, vec3 normal) {
-	//Without clamping to 0.0 - 1.0
-	//return (surfelArea * clamp(dot(normal,dir),0.0,1.0))/(f_cellSize*f_cellSize); 
-	//Should I clamp it to 0.0 - 1.0? As long as it is probability I think so
 	return clamp((surfelArea * clamp(dot(normal,dir),0.0,1.0))/(f_cellSize*f_cellSize),0.0,1.0); //It is probability so 0.0 - 1.0
 }
 
@@ -46,11 +43,11 @@ void main()
 		discard;
 	}
 	vec3 lightDir = normalize( v_lightPos - v_posFromRSM); //Both are in World space
-	//float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
+	float blockingPotencial = calculateBlockingPotencial(lightDir, v_normalFromRSM);
 
-	//vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * blockingPotencial;
+	vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * blockingPotencial;
 	//surfelArea
-	vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * surfelArea;
+	//vec4 SHCoeffGV = evalCosineLobeToDir(v_normalFromRSM) * surfelArea;
 
 	imageAtomicAdd(GeometryVolume,v_volumeCellIndex,f16vec4(SHCoeffGV));
 

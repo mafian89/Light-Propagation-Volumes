@@ -1,5 +1,5 @@
 //A simple class for handling GLSL shader compilation
-//Auhtor: Movania Muhammad Mobeen
+//Author: Movania Muhammad Mobeen
 #pragma once
 #include <GL/glew.h>
 #include <map>

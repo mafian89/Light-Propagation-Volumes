@@ -38,9 +38,9 @@ void main()
 		discard;
 	}*/
 
-	vec4 SHCoeffsR = evalCosineLobeToDir(v_GSnormalFromRSM) * v_GSfluxFromRSM.r;
-	vec4 SHCoeffsG = evalCosineLobeToDir(v_GSnormalFromRSM) * v_GSfluxFromRSM.g;
-	vec4 SHCoeffsB = evalCosineLobeToDir(v_GSnormalFromRSM) * v_GSfluxFromRSM.b;
+	vec4 SHCoeffsR = evalCosineLobeToDir(v_GSnormalFromRSM) / PI * v_GSfluxFromRSM.r;
+	vec4 SHCoeffsG = evalCosineLobeToDir(v_GSnormalFromRSM) / PI* v_GSfluxFromRSM.g;
+	vec4 SHCoeffsB = evalCosineLobeToDir(v_GSnormalFromRSM) / PI * v_GSfluxFromRSM.b;
 
 	LPVGridR = SHCoeffsR;
 	LPVGridG = SHCoeffsG;

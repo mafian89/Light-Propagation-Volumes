@@ -1,7 +1,13 @@
+/*
+* File:   DebugDrawer.h
+* Desc:		Jednotucha trida pro vykreslovani v ramci ladeni
+*
+*/
 #ifndef DEBUGDRAWER_H
 #define DEBUGDRAWER_H
 
 #include "common.h"
+#include "GLSLShader/GLSLShader.h"
 
 class DebugDrawer {
 public:

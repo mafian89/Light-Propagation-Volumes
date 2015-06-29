@@ -6,27 +6,18 @@
 #include <vector>
 #include <algorithm>    // std::max
 #include <fstream>
+#include <map>
 
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <IL/il.h>
 #include <IL/ilu.h>
 #include <IL/ilut.h>
-
-#include "GLSLShader/GLSLShader.h"
-#include "camera/controlCamera.h"
-#include "Mesh/Mesh.h"
-#include "fboManager.h"
-#include "textureManager.h"
-#include "CLightObject.h"
-#include "texUtils.h"
-#include "CBoundingBox.h"
-#include "DebugDrawer.h"
-#include "GBuffer.h"
-#include "animationCamera.h"
-#include "cubic.h"
-#include "spline.h"
-
+/*
+* File:   common.h
+* Desc:
+*
+*/
 #include <assimp/scene.h>
 #include <assimp/mesh.h>
 #include <assimp/Importer.hpp>
@@ -46,7 +37,10 @@
 #define DEG2RAD (M_PI / 180.0f)
 
 //#define VPL_DEBUG
+//#define GRIDS_DEBUG
 #define ORTHO_PROJECTION
 #define USESAMPLER3D
-#define PROPAGATION_STEPS 8
+//#define PROPAGATION_STEPS 8
+#define MAX_PROPAGATION_STEPS 12
 #define CASCADES 3
+#define MAX_CELL_SIZE 2.5

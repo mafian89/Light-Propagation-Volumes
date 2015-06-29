@@ -3,9 +3,9 @@
 layout(points )in;
 layout(points ,max_vertices = 1 )out;
 
-in ivec3 cellIndex[];
+flat in ivec3 cellIndex[];
 
-out ivec3 GScellIndex;
+flat out ivec3 GScellIndex;
 
 
 void main(){

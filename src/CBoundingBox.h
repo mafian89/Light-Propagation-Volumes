@@ -1,3 +1,8 @@
+/*
+* File:   CBoundingBox.h
+* Desc:		Bounding box pro model
+*
+*/
 #ifndef CBOUNDINGBOX_H
 #define CBOUNDINGBOX_H
 

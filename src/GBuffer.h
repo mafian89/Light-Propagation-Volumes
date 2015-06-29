@@ -1,7 +1,14 @@
+/*
+* File:   GBuffer.h
+* Desc:		GBuffer
+*
+*/
 #ifndef GBUFFER_H
 #define GBUFFER_H
 
 #include "common.h"
+#include "textureManager.h"
+#include "fboManager.h"
 
 class CFboManager;
 class CTextureManager;

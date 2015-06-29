@@ -1,6 +1,25 @@
+/*
+* File:   LPV.cpp
+* Desc:		Hlavni soubor obsahujici vykreslovaci smycku
+*
+*/
 #include "common.h"
 #include "CTextureViewer.h"
 #include "Grid.h"
+#include "GLSLShader/GLSLShader.h"
+#include "camera/controlCamera.h"
+#include "Mesh/Mesh.h"
+#include "fboManager.h"
+#include "textureManager.h"
+#include "CLightObject.h"
+#include "texUtils.h"
+#include "CBoundingBox.h"
+#include "DebugDrawer.h"
+#include "GBuffer.h"
+#include "animationCamera.h"
+#include "cubic.h"
+#include "spline.h"
+#include "CTimeQuery.h"
 
 
 #ifdef _MSC_VER
@@ -50,20 +69,48 @@ float cellSize;
 float f_tanFovXHalf;
 float f_tanFovYHalf;
 float f_texelAreaModifier = 1.0f; //Arbitrary value
-float f_indirectAttenuation = 0.8f;
-float initialCamHorAngle = 4.53202, initialCamVerAngle = -0.362;
+float f_indirectAttenuation = 1.7f;
+float initialCamHorAngle = 4.41052, initialCamVerAngle = -0.214501;
 
 bool b_useNormalOffset = false;
 bool b_firstPropStep = true;
-bool b_useOcclusion = true;
-bool b_useLayeredFill = true;
-bool b_useMultiStepPropagation  = false;
-bool b_movableLPV = true;
+bool b_useMultiStepPropagation  = true;
 bool b_enableGI = true;
-bool b_enableCascades = true;
 bool b_canWriteToFile = true;
+bool b_lightIntesityOnly = false;
+bool b_compileAndUseAtomicShaders = true;
+bool b_firstFrame = true;
+bool b_interpolateBorders = true;
+
 bool b_recordingMode = false;
-bool b_animation = false;
+bool b_animation = true;
+
+//bool b_recordingMode = true;
+//bool b_animation = false;
+
+bool b_profileMode = false;
+bool b_showGrids = false;
+bool b_useOcclusion = true;
+
+//1
+bool b_enableCascades = true;
+bool b_useLayeredFill = true;
+bool b_movableLPV = true;
+
+//2
+//bool b_enableCascades = true;
+//bool b_useLayeredFill = false;
+//bool b_movableLPV = true;
+
+//3
+//bool b_enableCascades = false;
+//bool b_useLayeredFill = true;
+//bool b_movableLPV = false;
+
+//4
+//bool b_enableCascades = false;
+//bool b_useLayeredFill = false;
+//bool b_movableLPV = false;
 
 int volumeDimensionsMult;
 
@@ -84,15 +131,16 @@ typedef struct propTex {
 	GLuint red, green, blue;
 } propTextureType;
 
-propTextureType propTextures[CASCADES][PROPAGATION_STEPS];
+int PROPAGATION_STEPS = 8;
+
+propTextureType propTextures[CASCADES][MAX_PROPAGATION_STEPS];
 propTextureType injectCascadeTextures[CASCADES];
 propTextureType accumulatorCascadeTextures[CASCADES];
 GLuint geometryInjectCascadeTextures[CASCADES];
-CFboManager propagationFBOs[CASCADES][PROPAGATION_STEPS];
+CFboManager propagationFBOs[CASCADES][MAX_PROPAGATION_STEPS];
 CFboManager lightInjectCascadeFBOs[CASCADES];
 CFboManager geometryInjectCascadeFBOs[CASCADES];
-
-glm::vec3 initialCameraPos = glm::vec3(5.95956, 10.9459, -0.109317);
+glm::vec3 initialCameraPos = glm::vec3(31.4421, 21.1158, 3.80755);
 
 int level_global = 0;
 unsigned int currIndex = 0;
@@ -100,25 +148,24 @@ unsigned int currIndex = 0;
 void printVector(glm::vec3 v);
 void updateGrid();
 std::fstream keyFrames;
+std::fstream injectTimes, geometryInjectTimes, PropagationTimes, RSMTimes;
+TimeQuery RSM,inject,geometry, propagation, finalLighting;
 
 spline splinePath;
 animationCamera * tmp;
 
-
-//#define CTV
-//#define W2
-
-/**
-!!!!! IMPORTANT CHANGES !!!!!
-05/11/2015 - Changed texture wrap from GL_CLAMP_TO_EDGE to GL_CLAMP_TO_BORDER
+/*
+Push the quit event
 */
-
 void kill() {
 	SDL_Event event;
 	event.type = SDL_QUIT;
 	SDL_PushEvent(&event);
 }
 
+/*
+Initializes VPL invocations
+*/
 void initializeVPLsInvocations() {
 	////////////////////////////////////////////////////
 	// VPL INIT STUFF
@@ -161,6 +208,9 @@ void initializeVPLsInvocations() {
 	delete testPoints;
 }
 
+/*
+Initializes VAO for propagation
+*/
 void initializePropagationVAO(glm::vec3 volumeDimensions) {
 	propagationShader.Use();
 
@@ -224,7 +274,7 @@ void initPropStepTextures() {
 		propTextures[l][0].red = injectCascadeTextures[l].red;
 		propTextures[l][0].green = injectCascadeTextures[l].green;
 		propTextures[l][0].blue = injectCascadeTextures[l].blue;
-		for (int i = 1; i < PROPAGATION_STEPS; i++) {
+		for (int i = 1; i < MAX_PROPAGATION_STEPS; i++) {
 			string texNameR = "RLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			string texNameG = "GLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
 			string texNameB = "BLPVStep" + std::to_string(i) + "_cascade_" + std::to_string(l);
@@ -243,7 +293,7 @@ void initPropStepTextures() {
 void initPropagationFBOs() {
 	//for (int i = 1; i < PROPAGATION_STEPS; i++) {
 	for (int l = 0; l < CASCADES; l++) {
-		for (int i = 1; i < PROPAGATION_STEPS; i++) {
+		for (int i = 1; i < MAX_PROPAGATION_STEPS; i++) {
 
 			propagationFBOs[l][i].initFbo();
 			propagationFBOs[l][i].bind3DTextureToFbo(GL_COLOR_ATTACHMENT0, accumulatorCascadeTextures[l].red);
@@ -280,7 +330,7 @@ void initInjectFBOs() {
 		texManager.createRGBA16F3DTexture(texNameG, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 		texManager.createRGBA16F3DTexture(texNameB, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
 
-		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_NEAREST, GL_CLAMP_TO_BORDER);
+		texManager.createRGBA16F3DTexture(texNameOcclusion, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 
 		texManager.createRGBA16F3DTexture(texNameRaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
 		texManager.createRGBA16F3DTexture(texNameGaccum, volumeDimensions, GL_LINEAR, GL_CLAMP_TO_BORDER);
@@ -316,23 +366,82 @@ void initInjectFBOs() {
 	}
 }
 
+/*
+Check if extension is supported
+*/
+bool IsExtensionSupported(const char *name)
+{
+	GLint n = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+	for (GLint i = 0; i < n; i++)
+	{
+		const char* extension =
+			(const char*)glGetStringi(GL_EXTENSIONS, i);
+		if (!strcmp(name, extension))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+Init application
+*/
 void Initialize(SDL_Window * w) {
-	//glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+	//glGetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, &texture_units);
 	//Image uniforms GL_MAX_COMBINED_IMAGE_UNIFORMS - combined
 	//glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &max_color_attachments);
 	//std::cout << "Max texture units: " << texture_units << std::endl;
 	//tex = loadImage("../textures/texture.png");
+	if (!glewIsSupported("GL_ARB_clear_texture"))
+	{
+		std::cout << "GL_ARB_clear_texture not supported, using alternative method" << std::endl;
+		texManager.setClearTextureExtension(false);
+	}
+
+	if (!IsExtensionSupported("GL_NV_shader_atomic_float")) {
+		std::cout << "GL_NV_shader_atomic_float not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
+
+	if (!IsExtensionSupported("GL_NV_shader_atomic_fp16_vector")) {
+		std::cout << "GL_NV_shader_atomic_fp16_vector not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
+
+	if (!IsExtensionSupported("GL_NV_gpu_shader5")) {
+		std::cout << "GL_NV_gpu_shader5 not supported, shaders using this extension won't be compiled" << std::endl;
+		b_compileAndUseAtomicShaders = false;
+	}
 
 	if (b_recordingMode) {
-		string filename = "../src/keyFrames.txt";
+		string filename = "../misc/keyFrames.txt";
 		keyFrames.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 	}
+
+	if (b_profileMode) {
+		string path = "../misc/";
+		string gridSize = std::to_string(MAX_GRID_SIZE);
+		string propagations = std::to_string(PROPAGATION_STEPS);
+		string layered = (b_useLayeredFill) ? "layered" : "atomic";
+		string cascaded = (b_enableCascades) ? "cascaded" : "single";
+		string filename = path + "inject_" + gridSize + "_" + propagations + "_" + cascaded + "_" + layered + ".txt";
+		injectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+		//filename = path + "geometryInject.txt";
+		//geometryInjectTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+		filename = path + "propagation_" + gridSize + "_" + propagations + "_" + cascaded + "_" + layered + ".txt";
+		PropagationTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc); 
+		filename = path + "rsm.txt";
+		RSMTimes.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
+	}
+
 	if (!keyFrames.is_open())
 		b_canWriteToFile = false;
 
-	if (b_animation) {
+	//if (b_animation) {
 		splinePath.init();
-	}
+	//}
 
 #ifdef ORTHO_PROJECTION
 	/*
@@ -383,25 +492,25 @@ void Initialize(SDL_Window * w) {
 	gBufferShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/gbufferFill.frag").c_str());
 	gBufferShader.CreateAndLinkProgram();
 
+	if (b_compileAndUseAtomicShaders) {
+		propagationShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation.vs").c_str());
+		propagationShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation.frag").c_str());
+		propagationShader.CreateAndLinkProgram();
 
-	propagationShader.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/propagation.vs").c_str());
-	propagationShader.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/propagation.frag").c_str());
-	propagationShader.CreateAndLinkProgram();
+		injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
+		injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
+		injectLight.CreateAndLinkProgram();
+
+		geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
+		geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
+		geometryInject.CreateAndLinkProgram();
+	}
 
 
 	injectLight_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject_layered.vs").c_str());
 	injectLight_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/lightInject_layered.gs").c_str());
 	injectLight_layered.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject_layered.frag").c_str());
 	injectLight_layered.CreateAndLinkProgram();
-
-	injectLight.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/lightInject.vs").c_str());
-	injectLight.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/lightInject.frag").c_str());
-	injectLight.CreateAndLinkProgram();
-
-	geometryInject.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject.vs").c_str());
-	geometryInject.LoadFromFile(GL_FRAGMENT_SHADER, std::string("../shaders/geometryInject.frag").c_str());
-	geometryInject.CreateAndLinkProgram();
-
 	
 	geometryInject_layered.LoadFromFile(GL_VERTEX_SHADER, std::string("../shaders/geometryInject_layered.vs").c_str());
 	geometryInject_layered.LoadFromFile(GL_GEOMETRY_SHADER, std::string("../shaders/geometryInject_layered.gs").c_str());
@@ -423,34 +532,34 @@ void Initialize(SDL_Window * w) {
 	// CAMERA INIT
 	////////////////////////////////////////////////////
 	/*
-	Camera POSITION vector: (11.7542, 14.1148, 0.822185)
-	Camera UP vector: (-0.436604, 0.873719, -0.214456)
-	Camera RIGHT vector: (0.440876, 0, -0.897568)
-	Camera DIRECTION vector: (-0.783916, -0.486431, -0.385826)
-	Camera horizotnal angle: 4.25502
-	Camera vertical angle: -0.508
+	Camera POSITION vector: (31.4421, 21.1158, 3.80755)
+	Camera UP vector: (-0.203285, 0.977082, -0.063123)
+	Camera RIGHT vector: (0.296548, 0, -0.955018)
+	Camera DIRECTION vector: (-0.932901, -0.21286, -0.290494)
+	Camera horizotnal angle: 4.41052
+	Camera vertical angle: -0.214501
 
-	//Blocking view
-	Camera POSITION vector: (10.7061, 12.0907, -8.37268)
-	Camera UP vector: (-0.410051, 0.907291, 0.0931737)
-	Camera RIGHT vector: (-0.221577, 0, -0.975143)
-	Camera DIRECTION vector: (-0.884898, -0.420503, 0.20033)
-	Camera horizotnal angle: 4.93502
-	Camera vertical angle: -0.434
+	//Compare
+	Camera POSITION vector: (35.7994, 4.02377, -0.424968)
+	Camera UP vector: (-0.0519772, 0.998648, -0.000185819)
+	Camera RIGHT vector: (0.00357499, 0, -0.999994)
+	Camera DIRECTION vector: (-0.998639, -0.0519775, -0.00436523)
+	Camera horizotnal angle: 4.70802
+	Camera vertical angle: -0.052001
 
-	Camera POSITION vector: (5.95956, 10.9459, -0.109317)
-	Camera UP vector: (-0.348451, 0.93519, -0.063252)
-	Camera RIGHT vector: (0.178604, 0, -0.983921)
-	Camera DIRECTION vector: (-0.92002, -0.354145, -0.167762)
-	Camera horizotnal angle: 4.53202
-	Camera vertical angle: -0.362
+	Camera POSITION vector: (0.0695333, 17.7675, 2.18421)
+	Camera UP vector: (-0.0157415, 0.999594, -0.0237547)
+	Camera RIGHT vector: (0.833585, 0, -0.552392)
+	Camera DIRECTION vector: (-0.551504, -0.0284971, -0.833686)
+	Camera horizotnal angle: 3.72603
+	Camera vertical angle: -0.0285009
 	*/
 	//Normal camera
-	//controlCamera->initControlCamera(glm::vec3(11.7542, 14.1148, 0.822185), w, 4.25502, -0.508, WIDTH, HEIGHT, 1.0, 1000.0);
-	//Blocking view
-	//controlCamera->initControlCamera(glm::vec3(10.7061, 12.0907, -8.37268), w, 4.93502, -0.434, WIDTH, HEIGHT, 1.0, 1000.0);
-	//Debug
-	controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), w, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
+	controlCamera->initControlCamera(glm::vec3(31.4421, 21.1158, 3.80755), w, 4.41052, -0.214501, WIDTH, HEIGHT, 1.0, 1000.0);
+	//Compare
+	//controlCamera->initControlCamera(glm::vec3(35.7994, 4.02377, -0.424968), w, 4.70802, -0.052001, WIDTH, HEIGHT, 1.0, 1000.0);
+	//Grid compare
+	//controlCamera->initControlCamera(glm::vec3(0.0695333, 17.7675, 2.18421), w, 3.72603, -0.0285009, WIDTH, HEIGHT, 1.0, 1000.0);
 
 	////////////////////////////////////////////////////
 	// UNIFORMS/ATTRIBUTES SETUP
@@ -479,6 +588,8 @@ void Initialize(SDL_Window * w) {
 	basicShader.AddUniform("f_indirectAttenuation");
 	basicShader.AddUniform("b_enableGI");
 	basicShader.AddUniform("b_enableCascades");
+	basicShader.AddUniform("b_lightIntesityOnly");
+	basicShader.AddUniform("b_interpolateBorders");
 	basicShader.AddUniform("v_allGridMins");
 	basicShader.AddUniform("v_allCellSizes");
 	basicShader.UnUse();
@@ -501,19 +612,53 @@ void Initialize(SDL_Window * w) {
 	gBufferShader.AddUniform("mv");
 	gBufferShader.AddUniform("colorTex");
 	gBufferShader.UnUse();
+	if (b_compileAndUseAtomicShaders) {
+		injectLight.Use();
+		injectLight.AddUniform("LPVGridR");
+		injectLight.AddUniform("LPVGridG");
+		injectLight.AddUniform("LPVGridB");
+		injectLight.AddUniform("v_gridDim");
+		injectLight.AddUniform("f_cellSize");
+		injectLight.AddUniform("v_min");
+		injectLight.AddUniform("i_RSMsize");
+		injectLight.AddUniform("rsm_world_space_coords_tex");
+		injectLight.AddUniform("rsm_normal_tex");
+		injectLight.AddUniform("rsm_flux_tex");
+		injectLight.UnUse();
 
-	injectLight.Use();
-	injectLight.AddUniform("LPVGridR");
-	injectLight.AddUniform("LPVGridG");
-	injectLight.AddUniform("LPVGridB");
-	injectLight.AddUniform("v_gridDim");
-	injectLight.AddUniform("f_cellSize");
-	injectLight.AddUniform("v_min");
-	injectLight.AddUniform("i_RSMsize");
-	injectLight.AddUniform("rsm_world_space_coords_tex");
-	injectLight.AddUniform("rsm_normal_tex");
-	injectLight.AddUniform("rsm_flux_tex");
-	injectLight.UnUse();
+		geometryInject.Use();
+		geometryInject.AddUniform("GeometryVolume");
+		geometryInject.AddUniform("v_gridDim");
+		geometryInject.AddUniform("f_cellSize");
+		geometryInject.AddUniform("v_min");
+		geometryInject.AddUniform("i_RSMsize");
+		geometryInject.AddUniform("rsm_world_space_coords_tex");
+		geometryInject.AddUniform("rsm_normal_tex");
+		geometryInject.AddUniform("rsm_flux_tex");
+		geometryInject.AddUniform("f_tanFovXHalf");
+		geometryInject.AddUniform("f_tanFovYHalf");
+		geometryInject.AddUniform("v_lightPos");
+		geometryInject.AddUniform("m_lightView");
+		geometryInject.AddUniform("f_texelAreaModifier");
+		geometryInject.UnUse();
+
+		propagationShader.Use();
+		//propagationShader.AddUniform("AccumulatorLPV");
+		propagationShader.AddUniform("RAccumulatorLPV");
+		propagationShader.AddUniform("GAccumulatorLPV");
+		propagationShader.AddUniform("BAccumulatorLPV");
+		propagationShader.AddUniform("GeometryVolume");
+		propagationShader.AddUniform("RLightGridForNextStep");
+		propagationShader.AddUniform("GLightGridForNextStep");
+		propagationShader.AddUniform("BLightGridForNextStep");
+		propagationShader.AddUniform("LPVGridR");
+		propagationShader.AddUniform("LPVGridG");
+		propagationShader.AddUniform("LPVGridB");
+		propagationShader.AddUniform("b_firstPropStep");
+		propagationShader.AddUniform("v_gridDim");
+		propagationShader.AddUniform("b_useOcclusion");
+		propagationShader.UnUse();
+	}
 	//b_useLayeredFill
 
 	injectLight_layered.Use();
@@ -529,50 +674,6 @@ void Initialize(SDL_Window * w) {
 	injectLight_layered.AddUniform("rsm_flux_tex");
 	injectLight_layered.UnUse();
 
-	geometryInject.Use();
-	geometryInject.AddUniform("GeometryVolume");
-	geometryInject.AddUniform("v_gridDim");
-	geometryInject.AddUniform("f_cellSize");
-	geometryInject.AddUniform("v_min");
-	geometryInject.AddUniform("i_RSMsize");
-	geometryInject.AddUniform("rsm_world_space_coords_tex");
-	geometryInject.AddUniform("rsm_normal_tex");
-	geometryInject.AddUniform("rsm_flux_tex");
-	geometryInject.AddUniform("f_tanFovXHalf");
-	geometryInject.AddUniform("f_tanFovYHalf");
-	geometryInject.AddUniform("v_lightPos");
-	geometryInject.AddUniform("m_lightView");
-	geometryInject.AddUniform("f_texelAreaModifier");
-	geometryInject.UnUse();
-
-#ifdef VPL_DEBUG
-	VPLsDebug.Use();
-	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
-	VPLsDebug.AddUniform("rsm_normal_tex");
-	VPLsDebug.AddUniform("mvp");
-	VPLsDebug.AddUniform("i_RSMsize");
-	VPLsDebug.AddUniform("b_useNormalOffset");
-	VPLsDebug.UnUse();
-#endif
-
-	propagationShader.Use();
-	//propagationShader.AddUniform("AccumulatorLPV");
-	propagationShader.AddUniform("RAccumulatorLPV");
-	propagationShader.AddUniform("GAccumulatorLPV");
-	propagationShader.AddUniform("BAccumulatorLPV");
-	propagationShader.AddUniform("GeometryVolume");
-	propagationShader.AddUniform("RLightGridForNextStep");
-	propagationShader.AddUniform("GLightGridForNextStep");
-	propagationShader.AddUniform("BLightGridForNextStep");
-	propagationShader.AddUniform("LPVGridR");
-	propagationShader.AddUniform("LPVGridG");
-	propagationShader.AddUniform("LPVGridB");
-	propagationShader.AddUniform("b_firstPropStep");
-	propagationShader.AddUniform("v_gridDim");
-	propagationShader.AddUniform("b_useOcclusion");
-	propagationShader.UnUse();
-
-	
 	geometryInject_layered.Use();
 	geometryInject_layered.AddUniform("v_gridDim");
 	geometryInject_layered.AddUniform("f_cellSize");
@@ -599,12 +700,22 @@ void Initialize(SDL_Window * w) {
 	propagationShader_layered.AddUniform("b_useOcclusion");
 	propagationShader_layered.AddUniform("v_gridDim");
 	propagationShader_layered.UnUse();
-	
+
+#ifdef VPL_DEBUG
+	VPLsDebug.Use();
+	VPLsDebug.AddUniform("rsm_world_space_coords_tex");
+	VPLsDebug.AddUniform("rsm_normal_tex");
+	VPLsDebug.AddUniform("mvp");
+	VPLsDebug.AddUniform("i_RSMsize");
+	VPLsDebug.AddUniform("b_useNormalOffset");
+	VPLsDebug.UnUse();
+#endif
+
 
 	////////////////////////////////////////////////////
 	// LOAD MODELS & FILL THE VARIABLES
 	////////////////////////////////////////////////////
-	mesh = new Mesh("../models/sponza.obj");
+	mesh = new Mesh("../models/sponza_2.obj");
 	levels[0] = mesh->getBoundingBox()->getGrid();
 	volumeDimensions = levels[0].getDimensions();
 	cellSize = levels[0].getCellSize();
@@ -615,8 +726,8 @@ void Initialize(SDL_Window * w) {
 	delete bb_l0;
 
 	if (CASCADES >= 3) {
-		levels[1] = Grid(levels[0], 0.5,1);
-		levels[2] = Grid(levels[1], 0.25,2);
+		levels[1] = Grid(levels[0], 0.65,1);
+		levels[2] = Grid(levels[1], 0.4,2);
 
 		CBoundingBox * bb_l1 = new CBoundingBox(levels[1].getMin(), levels[1].getMax());
 		CBoundingBox * bb_l2 = new CBoundingBox(levels[2].getMin(), levels[2].getMax());
@@ -638,16 +749,6 @@ void Initialize(SDL_Window * w) {
 	f_tanFovYHalf = tanf(0.5 * f_lightFov * DEG2RAD)*f_lightAspect; //Aspect is always 1, but just for sure
 
 	gBuffer = new GBuffer(*(&texManager), WIDTH, HEIGHT);
-
-
-	//glm::vec3 o = (glm::vec3(11.7542, 14.1148, 0.822185) - vMin) / cellSize;
-	//std::cout << o.x << " " << o.y << " " << o.z << std::endl;
-	//std::vector<glm::vec3> p;
-	//p.push_back(glm::vec3(-1.0, 1.0, 1.0f));
-	//p.push_back(glm::vec3(1.0, 1.0, 1.0f));
-	//p.push_back(glm::vec3(-1.0, -1.0, 1.0));
-	//p.push_back(glm::vec3(1.0, -1.0, 1.0));
-	//dd = new DebugDrawer(GL_POINTS, &(p), NULL, NULL);
 
 	////////////////////////////////////////////////////
 	// TEXTURE INIT
@@ -698,6 +799,9 @@ void Initialize(SDL_Window * w) {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+/*
+Propagation using atomic operations
+*/
 void propagate(int level) {
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
@@ -802,6 +906,9 @@ void propagate(int level) {
 	propagationShader.UnUse();
 }
 
+/*
+Propagation using geometry shader
+*/
 void propagate_layered(int level) {
 	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 	glDisable(GL_DEPTH_TEST);
@@ -893,6 +1000,11 @@ void propagate_layered(int level) {
 	propagationShader_layered.UnUse();
 }
 
+int inc = 1;
+
+/*
+Main drawing loop
+*/
 void Display() {
 	//Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -909,9 +1021,14 @@ void Display() {
 	glm::mat4 m = glm::mat4(1.0f);
 	//m = glm::scale(m, glm::vec3(5.0f));
 	//glm::mat4 m = glm::mat4(1.0f);
-	glm::mat4 v, mvp, mv, vp,p;
+	glm::mat4 v, mvp, mv, vp, p;
 	glm::mat3 mn;
 	if (b_animation) {
+		//std::cout << currIndex << "/" << splinePath.getSplineCameraPath().size() - 1 << std::endl;
+		if (currIndex >= splinePath.getSplineCameraPath().size() - 1) {
+			kill();
+			return;
+		}
 		tmp = new animationCamera();
 		tmp = splinePath.getSplineCameraPathOnIndex(currIndex);
 		v = tmp->getAnimationCameraViewMatrix();
@@ -920,13 +1037,14 @@ void Display() {
 		mvp = p * v * m;
 		mv = v * m;
 		vp = p * v;
-		currIndex++;
-		if (currIndex >= splinePath.getSplineCameraPath().size() - 1) {
-			kill();
-			return;
-		}
+		//cout << inc << endl;
+		currIndex += inc;
+		//currIndex *= 2;
+
+
 		//check end
-	} else {
+	}
+	else {
 		controlCamera->computeMatricesFromInputs();
 		v = controlCamera->getViewMatrix();
 		p = controlCamera->getProjectionMatrix();
@@ -965,7 +1083,7 @@ void Display() {
 	gBufferShader.UnUse();
 	gBuffer->unbind();
 	*/
-	
+
 	////////////////////////////////////////////////////
 	// SHADOW MAP
 	////////////////////////////////////////////////////
@@ -986,204 +1104,207 @@ void Display() {
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 	//glDisable(GL_CULL_FACE);
-
-	////////////////////////////////////////////////////
-	// RSM
-	////////////////////////////////////////////////////
-	glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
-	rsmShader.Use();
-	glViewport(0, 0, RSMSIZE, RSMSIZE);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	light->computeMatrixes();
-	glUniformMatrix4fv(rsmShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
-	//glUniformMatrix4fv(rsmShader("mv"), 1, GL_FALSE, glm::value_ptr(v_light));
-	glUniformMatrix4fv(rsmShader("m"), 1, GL_FALSE, glm::value_ptr(m));
-	glUniform3f(rsmShader("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-	//glUniformMatrix3fv(rsmShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
-	mesh->render();
-	rsmShader.UnUse();
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	////////////////////////////////////////////////////
-	// LIGHT INJECT
-	////////////////////////////////////////////////////
-	//!!!!!!TEMPORARY!!!!!!!!
-	//texManager.clear3Dtexture(texManager["LPVGridR"]);
-	//texManager.clear3Dtexture(texManager["LPVGridG"]);
-	//texManager.clear3Dtexture(texManager["LPVGridB"]);
-
-	glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
-	glDisable(GL_DEPTH_TEST);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	for (int i = 0; i < CASCADES; i++) {
-		texManager.clear3Dtexture(injectCascadeTextures[i].red);
-		texManager.clear3Dtexture(injectCascadeTextures[i].green);
-		texManager.clear3Dtexture(injectCascadeTextures[i].blue);
-
-		vMin = levels[i].getMin();
-		cellSize = levels[i].getCellSize();
-
-		if (b_useLayeredFill) {
-
-			glBindFramebuffer(GL_FRAMEBUFFER, lightInjectCascadeFBOs[i].getFboId());
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE);
-			//Additive
-			glBlendEquation(GL_FUNC_ADD);
-			injectLight_layered.Use();
-
-			glUniform1i(injectLight_layered("rsm_world_space_coords_tex"), 0);
-			glUniform1i(injectLight_layered("rsm_normal_tex"), 1);
-			glUniform1i(injectLight_layered("rsm_flux_tex"), 2);
-			glUniform1i(injectLight_layered("i_RSMsize"), RSMSIZE);
-			glUniform1f(injectLight_layered("f_cellSize"), cellSize);
-			glUniform3f(injectLight_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(injectLight_layered("v_min"), vMin.x, vMin.y, vMin.z);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
-
-			glBindVertexArray(VPLsVAO);//aktivujeme VAO
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);//deaktivujeme VAO
-			injectLight_layered.UnUse();
-			glDisable(GL_BLEND);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		}
-		else {
-			injectLight.Use();
-			//texManager.clear3Dtexture(texManager["LPVGridR"]);
-			//texManager.clear3Dtexture(texManager["LPVGridG"]);
-			//texManager.clear3Dtexture(texManager["LPVGridB"]);
-
-			glUniform1i(injectLight("LPVGridR"), 0);
-			glUniform1i(injectLight("LPVGridG"), 1);
-			glUniform1i(injectLight("LPVGridB"), 2);
-			glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
-			glUniform1i(injectLight("rsm_normal_tex"), 1);
-			glUniform1i(injectLight("rsm_flux_tex"), 2);
-			glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
-			glUniform1f(injectLight("f_cellSize"), cellSize);
-			glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
-			glBindImageTexture(0, injectCascadeTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(1, injectCascadeTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindImageTexture(2, injectCascadeTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindVertexArray(VPLsVAO);
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);
-			injectLight.UnUse();
-		}
-
+	if (b_enableGI) {
 		////////////////////////////////////////////////////
-		// GEOMETRY INJECT
+		// RSM
 		////////////////////////////////////////////////////
+		RSM.start();
+		glBindFramebuffer(GL_FRAMEBUFFER, RSMFboManager->getFboId());
+		rsmShader.Use();
+		glViewport(0, 0, RSMSIZE, RSMSIZE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		light->computeMatrixes();
+		glUniformMatrix4fv(rsmShader("mvp"), 1, GL_FALSE, glm::value_ptr(mvp_light));
+		//glUniformMatrix4fv(rsmShader("mv"), 1, GL_FALSE, glm::value_ptr(v_light));
+		glUniformMatrix4fv(rsmShader("m"), 1, GL_FALSE, glm::value_ptr(m));
+		glUniform3f(rsmShader("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+		//glUniformMatrix3fv(rsmShader("mn"), 1, GL_FALSE, glm::value_ptr(mn_light));
+		mesh->render();
+		rsmShader.UnUse();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		RSM.stop();
+		//std::cout << testQuery.getElapsedTime() << std::endl;
+		////////////////////////////////////////////////////
+		// LIGHT INJECT
+		////////////////////////////////////////////////////
+		//texManager.clear3Dtexture(texManager["LPVGridR"]);
+		//texManager.clear3Dtexture(texManager["LPVGridG"]);
+		//texManager.clear3Dtexture(texManager["LPVGridB"]);
+
+		int end = 1;
+
+		if (b_enableCascades)
+			end = CASCADES;
+		inject.start();
 		glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
 		glDisable(GL_DEPTH_TEST);
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		texManager.clear3Dtexture(geometryInjectCascadeTextures[i]);
+
+		for (int i = 0; i < end; i++) {
+			texManager.clear3Dtexture(injectCascadeTextures[i].red);
+			texManager.clear3Dtexture(injectCascadeTextures[i].green);
+			texManager.clear3Dtexture(injectCascadeTextures[i].blue);
+
+			vMin = levels[i].getMin();
+			cellSize = levels[i].getCellSize();
+
+			if (b_useLayeredFill) {
+
+				glBindFramebuffer(GL_FRAMEBUFFER, lightInjectCascadeFBOs[i].getFboId());
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_ONE, GL_ONE);
+				//Additive
+				glBlendEquation(GL_FUNC_ADD);
+				injectLight_layered.Use();
+
+				glUniform1i(injectLight_layered("rsm_world_space_coords_tex"), 0);
+				glUniform1i(injectLight_layered("rsm_normal_tex"), 1);
+				glUniform1i(injectLight_layered("rsm_flux_tex"), 2);
+				glUniform1i(injectLight_layered("i_RSMsize"), RSMSIZE);
+				glUniform1f(injectLight_layered("f_cellSize"), cellSize);
+				glUniform3f(injectLight_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+				glUniform3f(injectLight_layered("v_min"), vMin.x, vMin.y, vMin.z);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+
+				glBindVertexArray(VPLsVAO);//aktivujeme VAO
+				glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+				glBindVertexArray(0);//deaktivujeme VAO
+				injectLight_layered.UnUse();
+				glDisable(GL_BLEND);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+			else {
+				if (b_compileAndUseAtomicShaders) {
+					injectLight.Use();
+					//texManager.clear3Dtexture(texManager["LPVGridR"]);
+					//texManager.clear3Dtexture(texManager["LPVGridG"]);
+					//texManager.clear3Dtexture(texManager["LPVGridB"]);
+
+					glUniform1i(injectLight("LPVGridR"), 0);
+					glUniform1i(injectLight("LPVGridG"), 1);
+					glUniform1i(injectLight("LPVGridB"), 2);
+					glUniform1i(injectLight("rsm_world_space_coords_tex"), 0);
+					glUniform1i(injectLight("rsm_normal_tex"), 1);
+					glUniform1i(injectLight("rsm_flux_tex"), 2);
+					glUniform1i(injectLight("i_RSMsize"), RSMSIZE);
+					glUniform1f(injectLight("f_cellSize"), cellSize);
+					glUniform3f(injectLight("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+					glUniform3f(injectLight("v_min"), vMin.x, vMin.y, vMin.z);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+					glActiveTexture(GL_TEXTURE2);
+					glBindTexture(GL_TEXTURE_2D, texManager["rsm_flux_tex"]);
+					glBindImageTexture(0, injectCascadeTextures[i].red, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+					glBindImageTexture(1, injectCascadeTextures[i].green, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+					glBindImageTexture(2, injectCascadeTextures[i].blue, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+					glBindVertexArray(VPLsVAO);
+					glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+					glBindVertexArray(0);
+					injectLight.UnUse();
+				}
+			}
+
+			////////////////////////////////////////////////////
+			// GEOMETRY INJECT
+			////////////////////////////////////////////////////
+			glViewport(0, 0, volumeDimensions.x, volumeDimensions.y); //!! Set vieport to width and height of 3D texture!!
+			glDisable(GL_DEPTH_TEST);
+			glClearColor(0.0, 0.0, 0.0, 1.0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			texManager.clear3Dtexture(geometryInjectCascadeTextures[i]);
+			if (b_useLayeredFill) {
+				glBindFramebuffer(GL_FRAMEBUFFER, geometryInjectCascadeFBOs[i].getFboId());
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_ONE, GL_ONE);
+				//Additive
+				glBlendEquation(GL_FUNC_ADD);
+				geometryInject_layered.Use();
+				glUniform1i(geometryInject_layered("rsm_world_space_coords_tex"), 0);
+				glUniform1i(geometryInject_layered("rsm_normal_tex"), 1);
+				glUniform1i(geometryInject_layered("i_RSMsize"), RSMSIZE);
+				glUniform1f(geometryInject_layered("f_cellSize"), cellSize);
+				glUniform1f(geometryInject_layered("f_tanFovXHalf"), f_tanFovXHalf);
+				glUniform1f(geometryInject_layered("f_tanFovYHalf"), f_tanFovYHalf);
+				glUniform1f(geometryInject_layered("f_texelAreaModifier"), f_texelAreaModifier);
+				glUniform3f(geometryInject_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+				glUniform3f(geometryInject_layered("v_min"), vMin.x, vMin.y, vMin.z);
+				glUniform3f(geometryInject_layered("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+				glUniformMatrix4fv(geometryInject_layered("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+				glBindVertexArray(VPLsVAO);
+				glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+				glBindVertexArray(0);
+				geometryInject_layered.UnUse();
+				glDisable(GL_BLEND);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+			else {
+				if (b_compileAndUseAtomicShaders) {
+					geometryInject.Use();
+					glUniform1i(geometryInject("GeometryVolume"), 0);
+					glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
+					glUniform1i(geometryInject("rsm_normal_tex"), 1);
+					glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
+					glUniform1f(geometryInject("f_cellSize"), cellSize);
+					glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
+					glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
+					glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
+					glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
+					glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
+					glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
+					glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
+					//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
+					glBindImageTexture(0, geometryInjectCascadeTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+					glBindVertexArray(VPLsVAO);
+					glDrawArrays(GL_POINTS, 0, VPL_COUNT);
+					glBindVertexArray(0);
+					geometryInject.UnUse();
+				}
+			}
+		}
+		inject.stop();
+
+		////////////////////////////////////////////////////
+		// LIGHT PROPAGATION
+		////////////////////////////////////////////////////
+		propagation.start();
 		if (b_useLayeredFill) {
-			glBindFramebuffer(GL_FRAMEBUFFER, geometryInjectCascadeFBOs[i].getFboId());
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE);
-			//Additive
-			glBlendEquation(GL_FUNC_ADD);
-			geometryInject_layered.Use();
-			glUniform1i(geometryInject_layered("rsm_world_space_coords_tex"), 0);
-			glUniform1i(geometryInject_layered("rsm_normal_tex"), 1);
-			glUniform1i(geometryInject_layered("i_RSMsize"), RSMSIZE);
-			glUniform1f(geometryInject_layered("f_cellSize"), cellSize);
-			glUniform1f(geometryInject_layered("f_tanFovXHalf"), f_tanFovXHalf);
-			glUniform1f(geometryInject_layered("f_tanFovYHalf"), f_tanFovYHalf);
-			glUniform1f(geometryInject_layered("f_texelAreaModifier"), f_texelAreaModifier);
-			glUniform3f(geometryInject_layered("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(geometryInject_layered("v_min"), vMin.x, vMin.y, vMin.z);
-			glUniform3f(geometryInject_layered("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-			glUniformMatrix4fv(geometryInject_layered("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glBindVertexArray(VPLsVAO);
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);
-			geometryInject_layered.UnUse();
-			glDisable(GL_BLEND);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			for (int l = 0; l < end; l++) {
+				propagate_layered(l);
+			}
 		}
 		else {
-			geometryInject.Use();
-			glUniform1i(geometryInject("GeometryVolume"), 0);
-			glUniform1i(geometryInject("rsm_world_space_coords_tex"), 0);
-			glUniform1i(geometryInject("rsm_normal_tex"), 1);
-			glUniform1i(geometryInject("i_RSMsize"), RSMSIZE);
-			glUniform1f(geometryInject("f_cellSize"), cellSize);
-			glUniform1f(geometryInject("f_tanFovXHalf"), f_tanFovXHalf);
-			glUniform1f(geometryInject("f_tanFovYHalf"), f_tanFovYHalf);
-			glUniform1f(geometryInject("f_texelAreaModifier"), f_texelAreaModifier);
-			glUniform3f(geometryInject("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
-			glUniform3f(geometryInject("v_min"), vMin.x, vMin.y, vMin.z);
-			glUniform3f(geometryInject("v_lightPos"), lightPosition.x, lightPosition.y, lightPosition.z);
-			glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v_light));
-			//glUniformMatrix4fv(geometryInject("m_lightView"), 1, GL_FALSE, glm::value_ptr(v));
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_world_space_coords_tex"]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texManager["rsm_normal_tex"]);
-			glBindImageTexture(0, geometryInjectCascadeTextures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-			glBindVertexArray(VPLsVAO);
-			glDrawArrays(GL_POINTS, 0, VPL_COUNT);
-			glBindVertexArray(0);
-			geometryInject.UnUse();
+			if (b_compileAndUseAtomicShaders) {
+				for (int l = 0; l < end; l++) {
+					propagate(l);
+				}
+			}
 		}
+		propagation.stop();
 	}
 
-	
-	//float data[5 * 5 * 5 * 4];
-	//for (unsigned i = 0; i<5 * 5 * 5 * 4; ++i)data[i] = 0.;
-	//glBindTexture(GL_TEXTURE_3D, texManager["LPVGridR"]);
-	//glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, data);
-	//std::cerr << data[0]  <<" " << data[4*5] << std::endl;
-
-
-	
-
-	////////////////////////////////////////////////////
-	// LIGHT PROPAGATION
-	////////////////////////////////////////////////////
-	int end = 1;
-	if (b_enableCascades)
-		end = CASCADES;
-	if (b_useLayeredFill) {
-		for (int l = 0; l < end; l++) {
-			propagate_layered(l);
-		}
+	if (b_profileMode && !b_firstFrame) {
+		RSMTimes << RSM.getElapsedTime() << std::endl;
+		injectTimes << inject.getElapsedTime() << std::endl;
+		PropagationTimes << propagation.getElapsedTime() << std::endl;
 	}
-	else {
-		for (int l = 0; l < end; l++) {
-			propagate(l);
-		}
-	}
-	
-	/*if (b_useLayeredFill) {
-		propagate_layered(level_global);
-	}
-	else {
-		propagate(level_global);
-	}*/
 
+	finalLighting.start();
 	////////////////////////////////////////////////////
 	// RENDER SCENE TO TEXTURE
 	////////////////////////////////////////////////////
@@ -1227,6 +1348,8 @@ void Display() {
 	glUniform1f(basicShader("f_indirectAttenuation"), f_indirectAttenuation);// f_indirectAttenuation
 	glUniform1i(basicShader("b_enableGI"), b_enableGI);
 	glUniform1i(basicShader("b_enableCascades"), b_enableCascades);
+	glUniform1i(basicShader("b_lightIntesityOnly"), b_lightIntesityOnly);
+	glUniform1i(basicShader("b_interpolateBorders"), b_interpolateBorders);
 	glUniform3f(basicShader("v_gridDim"), volumeDimensions.x, volumeDimensions.y, volumeDimensions.z);
 
 	v_allGridMins[0] = levels[0].getMin();
@@ -1251,18 +1374,19 @@ void Display() {
 	mesh->render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	basicShader.UnUse();
-	/*
-	dd->setVPMatrix(mvp);
-	dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
-	dd->draw();
-	if (CASCADES >= 3) {
-		dd_l1->setVPMatrix(mvp);
-		dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
-		dd_l1->draw();
-		dd_l2->setVPMatrix(mvp);
-		dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
-		dd_l2->draw();
-	}*/
+	if (b_showGrids) {
+		dd->setVPMatrix(mvp);
+		dd->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[0].getMin(), levels[0].getMax())));
+		dd->draw();
+		if (CASCADES >= 3) {
+			dd_l1->setVPMatrix(mvp);
+			dd_l1->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[1].getMin(), levels[1].getMax())));
+			dd_l1->draw();
+			dd_l2->setVPMatrix(mvp);
+			dd_l2->updateVBO(&(CBoundingBox::calculatePointDimensions(levels[2].getMin(), levels[2].getMax())));
+			dd_l2->draw();
+		}
+	}
 	////////////////////////////////////////////////////
 	// VPL DEBUG DRAW
 	////////////////////////////////////////////////////
@@ -1288,6 +1412,8 @@ void Display() {
 #endif
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	finalLighting.stop();
+	//std::cout << finalLighting.getElapsedTime() << endl;
 
 	////////////////////////////////////////////////////
 	// FINAL COMPOSITION
@@ -1300,10 +1426,13 @@ void Display() {
 	ctv2->setTexture(texManager["render_tex"]);
 	ctv2->draw();
 	
-
-	delete tmp;
+	b_firstFrame = false;
+	
 }
 
+/*
+Helper function for displaying content of texture (2d only)
+*/
 void DisplayTexture(CTextureViewer * ctv) {
 
 	//glEnable(GL_CULL_FACE);
@@ -1315,6 +1444,10 @@ void DisplayTexture(CTextureViewer * ctv) {
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	ctv->draw();
 }
+
+/*
+Function which cleans up the mess before closing the window
+*/
 void Finalize(void) {
 
 	delete ctv;
@@ -1334,7 +1467,18 @@ void Finalize(void) {
 	if (keyFrames.is_open()) {
 		keyFrames.close();
 	}
+
+	if (injectTimes.is_open()) {
+		injectTimes.close();
+	}
+	if (PropagationTimes.is_open()) {
+		PropagationTimes.close();
+	}
+	if (RSMTimes.is_open()) {
+		RSMTimes.close();
+	}
 }
+
 void Reshape(int width, int height){
 	glViewport(0, 0, width, height);
 	aspect = float(height) / float(width);
@@ -1344,6 +1488,9 @@ void printVector(glm::vec3 v) {
 	std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
 }
 
+/*
+Update movable grid
+*/
 void updateGrid() {
 	if (b_movableLPV) {
 		glm::vec3 pos, dir;
@@ -1363,41 +1510,81 @@ void updateGrid() {
 	//printVector(vMin);
 }
 
-int main() {
-	//for (int i = 0; i < 25; i++) {
-	//	std::cout << i << ":\t" << i % 5 << ", " << i / 5 << std::endl;
-	//}
+/*
+Sets window's title
+*/
+void setTitle(SDL_Window * w) {
+	string casc = (b_enableCascades) ? "yes" : "no";
+	string layered = (b_useLayeredFill) ? "yes" : "no";
+	string occ = (b_useOcclusion) ? "yes" : "no";
+	string grid = (b_movableLPV) ? "yes" : "no";
+	string title = "CLPV Grid: " + std::to_string(MAX_GRID_SIZE) + " props: " + std::to_string(PROPAGATION_STEPS) + " layered: " + layered + " cascades: " + casc + " occlusion: " + occ + " movable grid: " + grid;
+	SDL_SetWindowTitle(w, title.c_str());
 
+}
+
+/*
+Handles parameters
+*/
+void processParams(int argc, char **argv) {
+	std::string arg, sample;
+	for (int i = 1; i<argc; i++){
+		if (argc > 1) {
+			arg = "";
+			arg.append(argv[i]);
+
+			sample = "-animation";
+			unsigned found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_animation = true;
+				b_profileMode = true;
+			}
+
+			sample = "-atomic";
+			found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_useLayeredFill = false;
+			}
+
+			sample = "-disableCascades";
+			found = arg.find(sample);
+			if (found != std::string::npos) {
+				b_enableCascades = false;
+				b_movableLPV = false;
+			}
+		}
+	}
+}
+
+/*
+Main function
+*/
+int main(int argc, char **argv) {
 	//ilutRenderer(ILUT_OPENGL);
 	ilInit();
 	iluInit();
 	//ilutInit();
 
+	processParams(argc, argv);
 
-	SDL_Window *mainwindow; /* Our window handle */
-	SDL_GLContext maincontext; /* Our opengl context handle */
-	SDL_Window *w2;
-	SDL_GLContext c2;
+	SDL_Window *mainwindow; 
+	SDL_GLContext maincontext; 
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) { /* Initialize SDL's Video subsystem */
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) { 
 		std::cout << "Unable to initialize SDL";
 		return 1;
 	}
 
-	/* Request opengl 4.4 context. */
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	/* Turn on double buffering with a 24bit Z buffer.
-	* You may need to change this to 16 or 32 for your system */
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	//SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
-	/* Create our window centered at 512x512 resolution */
-	mainwindow = SDL_CreateWindow("Window title goes here", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	mainwindow = SDL_CreateWindow("Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!mainwindow){ /* Die if creation failed */
 		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
@@ -1405,46 +1592,10 @@ int main() {
 		return 1;
 	}
 
-	/* Create our opengl context and attach it to our window */
+	setTitle(mainwindow);
+
 	maincontext = SDL_GL_CreateContext(mainwindow);
 	//SDL_GL_MakeCurrent(mainwindow, maincontext);
-#ifdef W2
-	w2 = SDL_CreateWindow("Window title goes here #2", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w2){ // Die if creation failed 
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-#endif
-#ifdef CTV
-	SDL_Window *w3;
-	w3 = SDL_CreateWindow("Window title goes here #3", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w3){ /* Die if creation failed */
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-
-	SDL_Window *w4;
-	w4 = SDL_CreateWindow("Window title goes here #4", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w4){ /* Die if creation failed */
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-
-	SDL_Window *w5;
-	w5 = SDL_CreateWindow("Window title goes here #4", 50, 50,
-		WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (!w5){ /* Die if creation failed */
-		std::cout << "SDL Error: " << SDL_GetError() << std::endl;
-		SDL_Quit();
-		return 1;
-	}
-#endif
 
 	GLenum rev;
 	glewExperimental = GL_TRUE;
@@ -1462,26 +1613,9 @@ int main() {
 
 
 	/* This makes our buffer swap syncronized with the monitor's vertical refresh */
-
 	//SDL_GL_SetSwapInterval(1);
 
 	bool quit = false;
-
-	/*std::cout << "OpenGL 2.0: " << ((GLEW_VERSION_2_0 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 2.1: " << ((GLEW_VERSION_2_1 != 0) ? "Available" : "Unavailable") << std::endl;
-
-	std::cout << "OpenGL 3.0: " << ((GLEW_VERSION_3_0 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 3.1: " << ((GLEW_VERSION_3_1 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 3.2: " << ((GLEW_VERSION_3_2 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 3.3: " << ((GLEW_VERSION_3_3 != 0) ? "Available" : "Unavailable") << std::endl;
-
-	std::cout << "OpenGL 4.0: " << ((GLEW_VERSION_4_0 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 4.1: " << ((GLEW_VERSION_4_1 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 4.2: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 4.3: " << ((GLEW_VERSION_4_3 != 0) ? "Available" : "Unavailable") << std::endl;
-	std::cout << "OpenGL 4.4: " << ((GLEW_VERSION_4_4 != 0) ? "Available" : "Unavailable") << std::endl;
-	//std::cout << "OpenGL 4.5: " << ((GLEW_VERSION_4_5 != 0) ? "Available" : "Unavailable") << std::endl;*/
-
 	Initialize(mainwindow);
 	Reshape(WIDTH, HEIGHT);
 
@@ -1495,16 +1629,6 @@ int main() {
 				//std::cout << "yes" << std::endl;
 				quit = true;
 			}
-#ifdef W2
-			if (event.type == SDL_WINDOWEVENT) {
-				switch (event.window.event) {
-				case SDL_WINDOWEVENT_CLOSE:
-					//SDL_Log("Window %d closed", event.window.windowID);
-					SDL_DestroyWindow((event.window.windowID > 1) ? w2 : mainwindow);
-					break;
-				}
-			}
-#endif
 			if (event.type == SDL_MOUSEMOTION) {
 				if (event.motion.state & SDL_BUTTON_LMASK)
 				{
@@ -1518,38 +1642,55 @@ int main() {
 			if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
 				if (event.key.keysym.sym == SDLK_p)
 					b_useMultiStepPropagation  = !b_useMultiStepPropagation ;
-				if (event.key.keysym.sym == SDLK_o)
+				if (event.key.keysym.sym == SDLK_o) {
 					b_useOcclusion = !b_useOcclusion;
+					setTitle(mainwindow);
+				}
 				if (event.key.keysym.sym == SDLK_c) {
 					f_indirectAttenuation += 0.1;
+					//cout << f_indirectAttenuation << endl;
 				}
 				if (event.key.keysym.sym == SDLK_v) {
 					if (f_indirectAttenuation >= 0.2) {
 						f_indirectAttenuation -= 0.1;
-					}
-				}
-
-				if (event.key.keysym.sym == SDLK_x) {
-					if (level_global < 2) {
-						level_global += 1;
-						std::cout << level_global << std::endl;
-					}
-				}
-				if (event.key.keysym.sym == SDLK_z) {
-					if (level_global > 0) {
-						level_global -= 1;
-						std::cout << level_global << std::endl;
+						//cout << f_indirectAttenuation << endl;
 					}
 				}
 
 				if (event.key.keysym.sym == SDLK_m) {
-					b_movableLPV = !b_movableLPV;
+					if (b_enableCascades) {
+						b_movableLPV = !b_movableLPV;
+						setTitle(mainwindow);
+					}
+				}
+				if (event.key.keysym.sym == SDLK_n) {
+					b_showGrids = !b_showGrids;
+				}
+
+				if (event.key.keysym.sym == SDLK_y) {
+					if (PROPAGATION_STEPS > 2) {
+						--PROPAGATION_STEPS;
+						setTitle(mainwindow);
+					}
+				}
+				if (event.key.keysym.sym == SDLK_x) {
+					if (PROPAGATION_STEPS < MAX_PROPAGATION_STEPS) {
+						++PROPAGATION_STEPS;
+						setTitle(mainwindow);
+					}
 				}
 				if (event.key.keysym.sym == SDLK_g) {
 					b_enableGI = !b_enableGI;
 				}
 				if (event.key.keysym.sym == SDLK_h) {
 					b_enableCascades = !b_enableCascades;
+					if (b_enableCascades) {
+						b_movableLPV = true;
+					}
+					else {
+						b_movableLPV = false;
+					}
+					setTitle(mainwindow);
 				}
 				if (event.key.keysym.sym == SDLK_t) {
 					//keyFrames
@@ -1569,13 +1710,36 @@ int main() {
 					}
 				}
 				if (event.key.keysym.sym == SDLK_r){
-					controlCamera->initControlCamera(glm::vec3(5.95956, 10.9459, -0.109317), mainwindow, 4.53202, -0.362, WIDTH, HEIGHT, 1.0, 1000.0);
-					controlCamera->moved = true;
-					controlCamera->computeMatricesFromInputs();
-					controlCamera->moved = false;
+					//if (!b_animation) {
+					//	controlCamera->initControlCamera(initialCameraPos, mainwindow, initialCamHorAngle, initialCamVerAngle, WIDTH, HEIGHT, 1.0, 1000.0);
+					//	controlCamera->moved = true;
+					//	controlCamera->computeMatricesFromInputs();
+					//	controlCamera->moved = false;
+					//}
+					//else {
+					//	b_animation = true;
+					//}
+					b_animation = !b_animation;
+					currIndex = 0;
+					inc = 1;
 				}
 				if (event.key.keysym.sym == SDLK_l) {
 					b_useLayeredFill = !b_useLayeredFill;
+					setTitle(mainwindow);
+				}
+				if (event.key.keysym.sym == SDLK_i) {
+					b_lightIntesityOnly = !b_lightIntesityOnly;
+				}
+				if (event.key.keysym.sym == SDLK_k) {
+					b_interpolateBorders = !b_interpolateBorders;
+				}
+				if (event.key.keysym.sym == SDLK_KP_MINUS) {
+					light->setVerAngle(light->getVerAngle() - 0.01f);
+					//cout << light->getVerAngle() << endl;
+				}
+				if (event.key.keysym.sym == SDLK_KP_PLUS) {
+					light->setVerAngle(light->getVerAngle() + 0.01f);
+					//cout << light->getVerAngle() << endl;
 				}
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					//std::cout << "ESC\n";
@@ -1586,7 +1750,12 @@ int main() {
 		old_time = current_time;
 		current_time = SDL_GetTicks();
 		ftime = (current_time - old_time) / 1000.0f;
-		//cout << ftime << endl;
+		float a = (current_time - old_time) / 17.0;
+		//cout << a << " " << static_cast<int>(a) << endl;
+		if (!b_firstFrame) {
+			inc = static_cast<int>(a + 0.5);
+			if (inc == 0) inc = 1;
+		}
 
 		keys = SDL_GetKeyboardState(NULL);
 		if (keys[SDL_SCANCODE_W]) {
@@ -1623,12 +1792,7 @@ int main() {
 		//else if (keys[SDL_SCANCODE_KP_3]) {
 		//	light->setPosition(light->getPosition() + (glm::vec3(0, 0, 1)* movementSpeed * ftime));
 		//}
-		else if (keys[SDL_SCANCODE_KP_MINUS]) {
-			light->setVerAngle(light->getVerAngle() - 0.01f);
-		}
-		else if (keys[SDL_SCANCODE_KP_PLUS]) {
-			light->setVerAngle(light->getVerAngle() + 0.01f);
-		}
+
 		else if (keys[SDL_SCANCODE_KP_DIVIDE]) {
 			light->setHorAngle(light->getHorAngle() + 0.01f);
 		}
@@ -1636,64 +1800,16 @@ int main() {
 			light->setHorAngle(light->getHorAngle() - 0.01f);
 		}
 
-#ifdef CTV
-
-		SDL_GL_MakeCurrent(w3, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
-		//rsm_world_space_coords_tex
-		//rsm_normal_tex
-		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_normal_tex"]);
-		//ctv->setDepthOnly(true);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w3);
-
-		SDL_GL_MakeCurrent(w4, maincontext);
-		/*ctv->setTexture(texManager["rsm_depth_tex"]);*/
-		//rsm_world_space_coords_tex
-		//rsm_normal_tex
-		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_world_space_coords_tex"]);
-		//ctv->setDepthOnly(true);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w4);
-#endif
-#ifdef W2
-		SDL_GL_MakeCurrent(w2, maincontext);
-		//ctv->setTexture(texManager["rsm_depth_tex"]);
-		//rsm_world_space_coords_tex
-		//rsm_normal_tex
-		//rsm_flux_tex
-		ctv->setTexture(texManager["rsm_flux_tex"]);
-		//ctv->setDepthOnly(true);
-		DisplayTexture(ctv);
-		SDL_GL_SwapWindow(w2);
-#endif
 		SDL_GL_MakeCurrent(mainwindow, maincontext);
 		Display();
 		SDL_GL_SwapWindow(mainwindow);
 
 	}
-	//std::cout << "MAX: " << mesh->getBoundingBox()->getMax().x << "," << mesh->getBoundingBox()->getMax().y << "," << mesh->getBoundingBox()->getMax().z << std::endl;
-	//std::cout << "MIN: " << mesh->getBoundingBox()->getMin().x << "," << mesh->getBoundingBox()->getMin().y << "," << mesh->getBoundingBox()->getMin().z << std::endl;
-	//std::vector<glm::vec3> points = mesh->getBoundingBox()->getPoints();
-	//for (std::vector<glm::vec3>::iterator it = points.begin(); it != points.end(); ++it) {
-	//	std::cout << it - points.begin() + 1<< ": " << (*it).x << ", " << (*it).y << ", " << (*it).z << std::endl;
-	//}
-
-	//std::vector<glm::vec2> uv;
-	//uv.push_back(glm::vec2(1.0));
-
-
-
 	Finalize();
 
 	/* Delete our opengl context, destroy our window, and shutdown SDL */
 	SDL_GL_DeleteContext(maincontext);
 	SDL_DestroyWindow(mainwindow);
-#ifdef W2
-	SDL_DestroyWindow(w2);
-#endif
 
 	SDL_Quit();
 

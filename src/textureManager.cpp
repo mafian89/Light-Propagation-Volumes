@@ -1,6 +1,6 @@
 #include "textureManager.h"
 
-CTextureManager::CTextureManager() {
+CTextureManager::CTextureManager() : clearTextureExtension(true) {
 }
 
 CTextureManager::~CTextureManager() {
@@ -38,24 +38,6 @@ void CTextureManager::createTexture(const string& texture, const string filePath
 			//glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_LUMINANCE);
 		}
 	} 
-	//else {
-	//	surface = IMG_Load(filePath.c_str());
-	//	if (!surface) {
-	//		std::cout<<"Cannot load image!"<<std::endl;
-	//		std::cout << filePath << std::endl;
-	//		return;
-	//	}
-	//	if (surface->format->BytesPerPixel == 3) { // RGB 24bit
-	//			mode = GL_RGB;
-	//	} else if (surface->format->BytesPerPixel == 4) { // RGBA 32bit
-	//		mode = GL_RGBA;
-	//	} else {
-	//		SDL_FreeSurface(surface);
-	//	}
-	//	glTexImage2D(GL_TEXTURE_2D, 0, mode, surface->w, surface->h, 0, mode, GL_UNSIGNED_BYTE, surface->pixels);
-	//	SDL_FreeSurface(surface);
-	//}
-	//glBindTexture(GL_TEXTURE_2D,0);
 }
 
 void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {
@@ -78,8 +60,19 @@ void CTextureManager::createRGBA16F3DTexture(const string& texture, glm::vec3 di
 }
 
 void CTextureManager::clear3Dtexture(GLuint texture) {
-	GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	glClearTexImage(texture, 0, GL_RGBA, GL_FLOAT, &data[0]);
+	if (clearTextureExtension) {
+		GLfloat data[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		glClearTexImage(texture, 0, GL_RGBA, GL_FLOAT, &data[0]);
+	}
+	else {
+		//MUCH SLOWER version, but should work on version lower than 4.4
+		std::vector<GLfloat> emptyData(MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_GRID_SIZE * sizeof(float), 0.0);
+		glBindTexture(GL_TEXTURE_3D, texture);
+		//glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, MAX_GRID_SIZE, MAX_GRID_SIZE, MAX_GRID_SIZE, 0, GL_RGBA, GL_FLOAT, &emptyData[0]);
+		//or
+		glTexSubImage3D(GL_TEXTURE_3D, 0, 0,0,0, MAX_GRID_SIZE, MAX_GRID_SIZE, MAX_GRID_SIZE, GL_RGBA, GL_FLOAT, &emptyData[0]);
+		glBindTexture(GL_TEXTURE_3D, 0);
+	}
 }
 
 void CTextureManager::createRGBA3DTexture(const string& texture, glm::vec3 dim, GLuint filter, GLuint wrap) {

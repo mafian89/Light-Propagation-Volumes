@@ -6,6 +6,8 @@
 
 #include "../common.h"
 
+#include "../texUtils.h"
+#include "../CBoundingBox.h"
 #include <vector>
 
 // Forward declaration so the compiler knows what CBoundingBox is

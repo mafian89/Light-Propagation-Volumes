@@ -29,6 +29,10 @@ uniform bool b_useOcclusion;
 uniform vec3 v_gridDim; //Resolution of the grid
 flat in ivec3 cellIndex;
 
+#define OPTIM
+
+vec3 gridDimDiv = vec3(1) / v_gridDim;
+
 //const float directFaceSubtendedSolidAngle = 0.03188428; // 0.4006696846f / 4Pi;
 //const float sideFaceSubtendedSolidAngle = 0.03369559; // 0.4234413544f / 4Pi;
 
@@ -62,17 +66,6 @@ vec4 evalCosineLobeToDir_direct( vec3 direction ) {
 float innerProduct(vec4 sh1, vec4 sh2) {
 	return sh1.x*sh2.x + sh1.y*sh2.y + sh1.z*sh2.z + sh1.w*sh2.w; 
 }
-
-/*
-bool isInside(ivec3 i) {
-	if(i.x < 0 || i.x > int(v_gridDim.x))
-		return false;
-	if(i.y < 0 || i.y > int(v_gridDim.y))
-		return false;
-	if(i.z < 0 || i.z > int(v_gridDim.z))
-		return false;
-	return true;
-}*/
 
 const ivec3 propDirections[6] = {
 	//+Z
@@ -147,11 +140,15 @@ void propagate() {
 		#endif
 
 		float occlusionValue = 1.0; // no occlusion
-		//TODO: Occlusion!!!!
 		//No occlusion for the first step
 		if(!b_firstPropStep && b_useOcclusion) {
 			//vec4 x = imageLoad(GeometryVolume, ivec3(0,0,0));
-			vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			#ifndef OPTIM
+				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) / v_gridDim;
+			#else
+				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * mainDirection) * gridDimDiv;
+			#endif
+			
 			vec4 occCoeffs = texture(GeometryVolume, occCoord);
 			occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -mainDirection )),0.0,1.0 );
 		}
@@ -173,10 +170,13 @@ void propagate() {
 			//Reprojected direction
 			vec3 reprojDirection = getReprojSideDirection( face, mainDirection );
 
-			//TODO: Occlusion!!!!
 			//No occlusion for the first step
 			if(!b_firstPropStep && b_useOcclusion) {
-				vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				#ifndef OPTIM
+					vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) / v_gridDim;
+				#else
+					vec3 occCoord = (vec3( neighbourCellIndex.xyz ) + 0.5 * evalDirection) * gridDimDiv;
+				#endif
 				vec4 occCoeffs = texture(GeometryVolume, occCoord);
 				occlusionValue = 1.0 - clamp( occlusionAmplifier*innerProduct(occCoeffs, evalSH_direct( -evalDirection )),0.0,1.0 );
 			}

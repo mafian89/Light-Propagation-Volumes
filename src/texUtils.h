@@ -1,3 +1,8 @@
+/*
+* File:   texUtils.h
+* Desc:		Utilitky pro praci s texturami
+*
+*/
 #ifndef TEXUTILS_H
 #define TEXUTILS_H
 

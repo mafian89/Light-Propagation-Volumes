@@ -17,7 +17,7 @@ void spline::init() {
     this->interpolStep = 200;
     this->currentCamIndex = 0;
     this->currentKeyFrameCameraIndex = 0;
-    this->loadKeyFrames("../src/keyFrames.txt");
+    this->loadKeyFrames("../misc/keyFrames.txt");
     this->enableCubicInterpolation(true);
     this->buildSplinePath();
 }
